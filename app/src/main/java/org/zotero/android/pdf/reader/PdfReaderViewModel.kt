@@ -44,6 +44,7 @@ import com.pspdfkit.configuration.activity.UserInterfaceViewMode
 import com.pspdfkit.configuration.page.PageFitMode
 import com.pspdfkit.configuration.page.PageScrollMode
 import com.pspdfkit.configuration.theming.ThemeMode
+import com.pspdfkit.datastructures.Range
 import com.pspdfkit.document.OutlineElement
 import com.pspdfkit.document.PdfDocument
 import com.pspdfkit.document.PdfDocumentLoader
@@ -58,6 +59,7 @@ import com.pspdfkit.ui.search.SearchResultHighlighter
 import com.pspdfkit.ui.special_mode.controller.AnnotationCreationController
 import com.pspdfkit.ui.special_mode.controller.AnnotationSelectionController
 import com.pspdfkit.ui.special_mode.controller.AnnotationTool
+import com.pspdfkit.ui.special_mode.controller.TextSelectionController
 import com.pspdfkit.ui.special_mode.manager.AnnotationManager
 import com.pspdfkit.ui.toolbar.popup.PopupToolbarMenuItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -265,6 +267,11 @@ class PdfReaderViewModel @Inject constructor(
 
     private var annotationEditReaderKey: AnnotationKey? = null
     private var isLongPressOnTextAnnotation = false
+    private var textSelectionModeActive = false
+    private var scrollingDisabledForTextSelection = false
+    private var activeTextSelectionController: TextSelectionController? = null
+    private var stylusSelectionAnchorRange: Range? = null
+    private var lastAppliedStylusSelectionRange: Range? = null
     private var cropPageJob: Job? = null
     private var savedCropConfiguration: SavedCropConfiguration? = null
     override fun preferredLandscapeScreenOrientation(): Int {
@@ -1350,11 +1357,52 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun setupInteractionListeners() {
-        pdfFragment.setOnDocumentLongPressListener { _, _, _, _, annotation ->
+        pdfFragment.addOnTextSelectionModeChangeListener(object :
+            com.pspdfkit.ui.special_mode.manager.TextSelectionManager.OnTextSelectionModeChangeListener {
+            override fun onEnterTextSelectionMode(controller: com.pspdfkit.ui.special_mode.controller.TextSelectionController) {
+                textSelectionModeActive = true
+                activeTextSelectionController = controller
+                stylusSelectionAnchorRange = controller.getTextSelection()?.textRange
+                lastAppliedStylusSelectionRange = stylusSelectionAnchorRange
+                if (!scrollingDisabledForTextSelection) {
+                    pdfFragment.setScrollingEnabled(false)
+                    scrollingDisabledForTextSelection = true
+                }
+            }
+
+            override fun onExitTextSelectionMode(controller: com.pspdfkit.ui.special_mode.controller.TextSelectionController) {
+                textSelectionModeActive = false
+                activeTextSelectionController = null
+                stylusSelectionAnchorRange = null
+                lastAppliedStylusSelectionRange = null
+                if (scrollingDisabledForTextSelection) {
+                    pdfFragment.setScrollingEnabled(true)
+                    scrollingDisabledForTextSelection = false
+                }
+            }
+        })
+        pdfFragment.setOnDocumentLongPressListener { document, pageIndex, event, pagePosition, annotation ->
             if (annotation?.type == AnnotationType.FREETEXT) {
                 isLongPressOnTextAnnotation = true
                 pdfFragment.setSelectedAnnotation(annotation)
                 return@setOnDocumentLongPressListener true
+            }
+            if (
+                event?.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS &&
+                pagePosition != null &&
+                annotation == null
+            ) {
+                val wordRange = wordRangeAt(
+                    document = document,
+                    pageIndex = pageIndex,
+                    pagePosition = pagePosition,
+                )
+                if (wordRange != null) {
+                    stylusSelectionAnchorRange = wordRange
+                    lastAppliedStylusSelectionRange = wordRange
+                    pdfFragment.enterTextSelectionMode(pageIndex, wordRange)
+                    return@setOnDocumentLongPressListener true
+                }
             }
             false
         }
@@ -1427,6 +1475,106 @@ class PdfReaderViewModel @Inject constructor(
                         type = Kind.database
                     )
                 }
+            )
+        }
+    }
+
+    private fun wordRangeAt(
+        document: PdfDocument,
+        pageIndex: Int,
+        pagePosition: PointF,
+    ): Range? {
+        val pageText = document.getPageText(pageIndex)
+        if (pageText.isEmpty()) {
+            return null
+        }
+
+        val rawIndex = document.getCharIndexAt(pageIndex, pagePosition.x, pagePosition.y)
+        if (rawIndex !in pageText.indices) {
+            return null
+        }
+
+        val anchorIndex = when {
+            pageText[rawIndex].isWordSelectionCharacter() -> rawIndex
+            rawIndex + 1 < pageText.length && pageText[rawIndex + 1].isWordSelectionCharacter() -> rawIndex + 1
+            rawIndex - 1 >= 0 && pageText[rawIndex - 1].isWordSelectionCharacter() -> rawIndex - 1
+            else -> return null
+        }
+
+        var start = anchorIndex
+        while (start > 0 && pageText[start - 1].isWordSelectionCharacter()) {
+            start--
+        }
+
+        var endExclusive = anchorIndex + 1
+        while (endExclusive < pageText.length && pageText[endExclusive].isWordSelectionCharacter()) {
+            endExclusive++
+        }
+
+        val length = endExclusive - start
+        if (length <= 0) {
+            return null
+        }
+        return Range(start, length)
+    }
+
+    private fun Char.isWordSelectionCharacter(): Boolean {
+        return isLetterOrDigit() || this == '_' || this == '\'' || this == '-'
+    }
+
+    override fun onStylusSelectionMove(viewX: Float, viewY: Float) {
+        val controller = activeTextSelectionController ?: return
+        val anchorRange = stylusSelectionAnchorRange ?: return
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+
+        val currentSelection = controller.getTextSelection() ?: return
+        val pageIndex = currentSelection.pageIndex
+        val pagePoint = PointF(viewX, viewY)
+        pdfFragment.viewProjection.toPdfPoint(pagePoint, pageIndex)
+        val currentWordRange = wordRangeAt(
+            document = document,
+            pageIndex = pageIndex,
+            pagePosition = pagePoint,
+        ) ?: return
+
+        val expandedRange = expandSelectionRange(
+            anchorRange = anchorRange,
+            currentRange = currentWordRange,
+        )
+        if (expandedRange == lastAppliedStylusSelectionRange) {
+            return
+        }
+
+        // PSPDFKit enters text selection mode correctly for stylus long-press,
+        // but on this e-ink device it doesn't reliably expand the selection while dragging.
+        // Update the word-based range explicitly from the current pen position instead.
+        val updatedSelection = com.pspdfkit.datastructures.TextSelection.fromTextRange(
+            document,
+            pageIndex,
+            expandedRange,
+        )
+        controller.setTextSelection(updatedSelection)
+        lastAppliedStylusSelectionRange = expandedRange
+    }
+
+    override fun onStylusSelectionEnd() {
+        lastAppliedStylusSelectionRange = activeTextSelectionController?.getTextSelection()?.textRange
+    }
+
+    private fun expandSelectionRange(anchorRange: Range, currentRange: Range): Range {
+        val anchorStart = anchorRange.getStartPosition()
+        val anchorEnd = anchorRange.getEndPosition()
+        val currentStart = currentRange.getStartPosition()
+        val currentEnd = currentRange.getEndPosition()
+
+        return when {
+            currentEnd <= anchorStart -> Range(currentStart, anchorEnd - currentStart)
+            currentStart >= anchorEnd -> Range(anchorStart, currentEnd - anchorStart)
+            else -> Range(
+                minOf(anchorStart, currentStart),
+                maxOf(anchorEnd, currentEnd) - minOf(anchorStart, currentStart),
             )
         }
     }
@@ -3442,6 +3590,9 @@ class PdfReaderViewModel @Inject constructor(
     override val activeAnnotationTool: AnnotationTool? get() {
         return this.pdfFragment.activeAnnotationTool
     }
+
+    override val isTextSelectionModeActive: Boolean
+        get() = textSelectionModeActive
 
     override fun canUndo() : Boolean {
         return this.pdfFragment.undoManager.canUndo()

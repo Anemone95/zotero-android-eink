@@ -17,7 +17,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentContainerView
 import org.zotero.android.R
 import org.zotero.android.architecture.ui.CustomLayoutSize
-import timber.log.Timber
 
 @Composable
 fun PdfReaderPspdfKitView(
@@ -37,6 +36,9 @@ fun PdfReaderPspdfKitView(
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 hasActiveAnnotationTool = { vMInterface.activeAnnotationTool != null }
+                isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
+                onStylusSelectionMove = vMInterface::onStylusSelectionMove
+                onStylusSelectionEnd = vMInterface::onStylusSelectionEnd
             }
 
             val containerId = R.id.container
@@ -59,6 +61,9 @@ fun PdfReaderPspdfKitView(
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 hasActiveAnnotationTool = { vMInterface.activeAnnotationTool != null }
+                isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
+                onStylusSelectionMove = vMInterface::onStylusSelectionMove
+                onStylusSelectionEnd = vMInterface::onStylusSelectionEnd
             }
         }
     )
@@ -70,6 +75,9 @@ private class SingleFingerVerticalOnlyFrameLayout(
     var lockHorizontalSingleFingerPan: Boolean = false
     var onDoubleTap: (() -> Unit)? = null
     var hasActiveAnnotationTool: () -> Boolean = { false }
+    var isTextSelectionModeActive: () -> Boolean = { false }
+    var onStylusSelectionMove: ((Float, Float) -> Unit)? = null
+    var onStylusSelectionEnd: (() -> Unit)? = null
     private var lockedX: Float? = null
     private var lockedNonFingerX: Float? = null
     private var lockedNonFingerY: Float? = null
@@ -84,12 +92,27 @@ private class SingleFingerVerticalOnlyFrameLayout(
     )
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        logInputToolEvent(event)
         if (isFingerEvent(event)) {
             gestureDetector.onTouchEvent(event)
         }
 
-        if (shouldFreezeNonFingerPan(event)) {
+        if (event.pointerCount == 1 && event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_MOVE -> {
+                    if (isTextSelectionModeActive()) {
+                        onStylusSelectionMove?.invoke(event.x, event.y)
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    onStylusSelectionEnd?.invoke()
+                }
+            }
+        }
+
+        val freezeNonFingerPan = shouldFreezeNonFingerPan(event)
+
+        if (freezeNonFingerPan) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     lockedNonFingerX = event.x
@@ -167,63 +190,9 @@ private class SingleFingerVerticalOnlyFrameLayout(
             return false
         }
         return when (event.getToolType(0)) {
-            MotionEvent.TOOL_TYPE_STYLUS,
+            MotionEvent.TOOL_TYPE_STYLUS -> !isTextSelectionModeActive()
             MotionEvent.TOOL_TYPE_ERASER -> true
             else -> false
-        }
-    }
-
-    private fun logInputToolEvent(event: MotionEvent) {
-        val shouldLog = when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN,
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL,
-            MotionEvent.ACTION_POINTER_DOWN,
-            MotionEvent.ACTION_POINTER_UP -> true
-            else -> false
-        }
-        if (!shouldLog) {
-            return
-        }
-
-        val tools = buildString {
-            for (index in 0 until event.pointerCount) {
-                if (index > 0) append(", ")
-                append(index)
-                append("=")
-                append(toolTypeName(event.getToolType(index)))
-            }
-        }
-
-        Timber.d(
-            "PDF input: action=%s pointers=%s tools=[%s] source=0x%s buttonState=0x%s",
-            actionName(event.actionMasked),
-            event.pointerCount,
-            tools,
-            event.source.toString(16),
-            event.buttonState.toString(16),
-        )
-    }
-
-    private fun actionName(action: Int): String {
-        return when (action) {
-            MotionEvent.ACTION_DOWN -> "DOWN"
-            MotionEvent.ACTION_UP -> "UP"
-            MotionEvent.ACTION_CANCEL -> "CANCEL"
-            MotionEvent.ACTION_POINTER_DOWN -> "POINTER_DOWN"
-            MotionEvent.ACTION_POINTER_UP -> "POINTER_UP"
-            else -> action.toString()
-        }
-    }
-
-    private fun toolTypeName(toolType: Int): String {
-        return when (toolType) {
-            MotionEvent.TOOL_TYPE_FINGER -> "FINGER"
-            MotionEvent.TOOL_TYPE_STYLUS -> "STYLUS"
-            MotionEvent.TOOL_TYPE_ERASER -> "ERASER"
-            MotionEvent.TOOL_TYPE_MOUSE -> "MOUSE"
-            MotionEvent.TOOL_TYPE_UNKNOWN -> "UNKNOWN"
-            else -> toolType.toString()
         }
     }
 }
@@ -239,10 +208,6 @@ private fun annotationMaxSideSize(): Int {
     val annotationSize = metricsWidthPixels * sidebarWidthPercentage
     val result = annotationSize.toInt()
     if (result <= 0) {
-        val errorMessage = "PdfReaderPspdfKitView annotationMaxSideSize is $result" +
-                ".sidebarWidthPercentage = $sidebarWidthPercentage" +
-                ".metricsWidthPixels = $metricsWidthPixels"
-        Timber.e(errorMessage)
         return if (layoutType.isTablet()) {
             480
         } else {
