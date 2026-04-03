@@ -1,9 +1,10 @@
 package org.zotero.android.pdf.reader
 
 import android.content.Context
-import android.view.MotionEvent
 import android.content.res.Resources
 import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.widget.FrameLayout
 import androidx.activity.compose.LocalActivity
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +35,7 @@ fun PdfReaderPspdfKitView(
         factory = { context ->
             val frameLayout = SingleFingerVerticalOnlyFrameLayout(context).apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
+                onDoubleTap = vMInterface::onPdfDoubleTap
             }
 
             val containerId = R.id.container
@@ -52,8 +54,10 @@ fun PdfReaderPspdfKitView(
             frameLayout
         },
         update = { frameLayout ->
-            (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.lockHorizontalSingleFingerPan =
-                isFixedCropModeEnabled
+            (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.apply {
+                lockHorizontalSingleFingerPan = isFixedCropModeEnabled
+                onDoubleTap = vMInterface::onPdfDoubleTap
+            }
         }
     )
 }
@@ -62,9 +66,20 @@ private class SingleFingerVerticalOnlyFrameLayout(
     context: Context,
 ) : FrameLayout(context) {
     var lockHorizontalSingleFingerPan: Boolean = false
+    var onDoubleTap: (() -> Unit)? = null
     private var lockedX: Float? = null
+    private val gestureDetector = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                onDoubleTap?.invoke()
+                return false
+            }
+        }
+    )
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        gestureDetector.onTouchEvent(event)
         if (!lockHorizontalSingleFingerPan) {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 lockedX = null

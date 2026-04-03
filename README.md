@@ -10,6 +10,10 @@ This repository is a custom build of Zotero Android made for e-ink devices.
 - Default PDF scroll direction is set to `Vertical`.
 - Default PDF page mode is set to `Single`.
 
+## TODO
+[] translate?
+[] pen support?
+[] different color in non-color monitor
 
 ## Build
 

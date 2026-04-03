@@ -19,6 +19,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -164,6 +165,30 @@ internal fun PdfReaderTopBar(
                     PlainTooltip {
                         Text(
                             stringResource(
+                                Strings.pdf_reader_manual_crop_page
+                            )
+                        )
+                    }
+                },
+                state = rememberTooltipState()
+            ) {
+                IconButton(onClick = viewModel::saveCurrentCropConfiguration) {
+                    Icon(
+                        painter = painterResource(Drawables.crop_manual_24),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                    )
+                }
+            }
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(
+                    TooltipAnchorPosition.Below,
+                    4.dp
+                ),
+                tooltip = {
+                    PlainTooltip {
+                        Text(
+                            stringResource(
                                 Strings.pdf_reader_crop_page
                             )
                         )
@@ -171,12 +196,13 @@ internal fun PdfReaderTopBar(
                 },
                 state = rememberTooltipState()
             ) {
-                IconWithPaddingM3(
-                    unselectedDrawableRes = Drawables.crop_24,
-                    selectedDrawableRes = Drawables.crop_24,
-                    onToggle = viewModel::cropCurrentPage,
-                    isSelected = false
-                )
+                IconButton(onClick = viewModel::cropCurrentPage) {
+                    Icon(
+                        painter = painterResource(Drawables.crop_auto_24),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                    )
+                }
             }
             TooltipBox(
                 positionProvider = rememberTooltipPositionProvider(

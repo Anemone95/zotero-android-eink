@@ -684,6 +684,56 @@ class PdfReaderViewModel @Inject constructor(
         cropPage(pdfUiFragment.pageIndex)
     }
 
+    override fun saveCurrentCropConfiguration() {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        val pageIndex = pdfUiFragment.pageIndex
+        handler.post {
+            val visibleRect = currentVisiblePdfRect(pageIndex) ?: run {
+                Timber.d("Manual crop save skipped: no visible rect for currentPage=%s", pageIndex)
+                return@post
+            }
+            val configuration = createSavedCropConfiguration(
+                horizontalBounds = visibleRect.left to visibleRect.right,
+                document = document,
+                pageIndex = pageIndex,
+            ) ?: run {
+                Timber.d("Manual crop save skipped: invalid visible rect=%s currentPage=%s", visibleRect, pageIndex)
+                return@post
+            }
+            savedCropConfiguration = configuration
+            defaults.setSavedPdfCropConfiguration(
+                attachmentKey = viewState.key,
+                libraryId = viewState.library.identifier,
+                configuration = configuration,
+            )
+            Timber.d(
+                "Manual crop saved: currentPage=%s visibleRect=%s savedConfiguration=%s",
+                pageIndex,
+                visibleRect,
+                configuration,
+            )
+        }
+    }
+
+    override fun onPdfDoubleTap() {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        val pageIndex = pdfUiFragment.pageIndex
+        if (defaults.getPDFSettings().pageFitting != PageFitting.CROP) {
+            Timber.d("Double tap ignored because page fitting is not Crop: currentPage=%s", pageIndex)
+            return
+        }
+        Timber.d("Double tap crop restore: currentPage=%s savedConfiguration=%s", pageIndex, savedCropConfiguration)
+        if (savedCropConfiguration != null) {
+            applySavedCropConfiguration(pageIndex)
+        } else {
+            cropPage(pageIndex)
+        }
+    }
+
     private fun cropPage(pageIndex: Int) {
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
             return
