@@ -69,6 +69,7 @@ internal class PdfSettingsViewModel @Inject constructor(
                     selectedPageFittingOption = convert(pdfSettings.pageFitting),
                     selectedPageModeOption = convert(pdfSettings.pageMode),
                     selectedScrollDirectionOption = convert(pdfSettings.direction),
+                    selectedSingleFingerHorizontalMovementOption = convert(pdfSettings.allowsSingleFingerHorizontalPageMovement),
                     selectedLandscapeOrientationOption = convert(pdfSettings.landscapeOrientation ?: LandscapeOrientation.REVERSE)
                 )
             }
@@ -102,6 +103,14 @@ internal class PdfSettingsViewModel @Inject constructor(
         return when(pageFitting) {
             PageFitting.FIT -> PdfSettingsOptions.PageFittingFit
             PageFitting.FILL -> PdfSettingsOptions.PageFittingFill
+            PageFitting.CROP -> PdfSettingsOptions.PageFittingCrop
+        }
+    }
+
+    private fun convert(allowsSingleFingerHorizontalPageMovement: Boolean): PdfSettingsOptions {
+        return when (allowsSingleFingerHorizontalPageMovement) {
+            true -> PdfSettingsOptions.SingleFingerHorizontalMovementAllow
+            false -> PdfSettingsOptions.SingleFingerHorizontalMovementDisallow
         }
     }
 
@@ -139,7 +148,7 @@ internal class PdfSettingsViewModel @Inject constructor(
                     copy(selectedScrollDirectionOption = option)
                 }
             }
-            PdfSettingsOptions.PageFittingFit, PdfSettingsOptions.PageFittingFill -> {
+            PdfSettingsOptions.PageFittingFit, PdfSettingsOptions.PageFittingFill, PdfSettingsOptions.PageFittingCrop -> {
                 updateState {
                     copy(selectedPageFittingOption = option)
                 }
@@ -147,6 +156,11 @@ internal class PdfSettingsViewModel @Inject constructor(
             PdfSettingsOptions.AppearanceLight, PdfSettingsOptions.AppearanceDark, PdfSettingsOptions.AppearanceAutomatic -> {
                 updateState {
                     copy(selectedAppearanceOption = option)
+                }
+            }
+            PdfSettingsOptions.SingleFingerHorizontalMovementAllow, PdfSettingsOptions.SingleFingerHorizontalMovementDisallow -> {
+                updateState {
+                    copy(selectedSingleFingerHorizontalMovementOption = option)
                 }
             }
             PdfSettingsOptions.LandscapeOrientationNormal, PdfSettingsOptions.LandscapeOrientationReverse -> {
@@ -197,6 +211,9 @@ internal class PdfSettingsViewModel @Inject constructor(
                 pdfSettings.pageFitting = PageFitting.FILL
             }
 
+            PdfSettingsOptions.PageFittingCrop -> {
+                pdfSettings.pageFitting = PageFitting.CROP
+            }
             PdfSettingsOptions.AppearanceLight -> {
                 pdfSettings.appearanceMode = PageAppearanceMode.LIGHT
             }
@@ -207,6 +224,14 @@ internal class PdfSettingsViewModel @Inject constructor(
 
             PdfSettingsOptions.AppearanceAutomatic -> {
                 pdfSettings.appearanceMode = PageAppearanceMode.AUTOMATIC
+            }
+
+            PdfSettingsOptions.SingleFingerHorizontalMovementAllow -> {
+                pdfSettings.allowsSingleFingerHorizontalPageMovement = true
+            }
+
+            PdfSettingsOptions.SingleFingerHorizontalMovementDisallow -> {
+                pdfSettings.allowsSingleFingerHorizontalPageMovement = false
             }
 
             PdfSettingsOptions.LandscapeOrientationNormal -> {
@@ -235,6 +260,7 @@ internal data class PdfSettingsViewState(
     val selectedScrollDirectionOption: PdfSettingsOptions = PdfSettingsOptions.ScrollDirectionHorizontal,
     val selectedPageFittingOption: PdfSettingsOptions = PdfSettingsOptions.PageFittingFit,
     val selectedAppearanceOption: PdfSettingsOptions = PdfSettingsOptions.AppearanceAutomatic,
+    val selectedSingleFingerHorizontalMovementOption: PdfSettingsOptions = PdfSettingsOptions.SingleFingerHorizontalMovementDisallow,
     val selectedLandscapeOrientationOption: PdfSettingsOptions = PdfSettingsOptions.LandscapeOrientationReverse,
     val isDark: Boolean = false,
 ) : ViewState {
@@ -255,11 +281,16 @@ internal data class PdfSettingsViewState(
     val pageFittingsOptions = listOf(
         PdfSettingsOptions.PageFittingFit,
         PdfSettingsOptions.PageFittingFill,
+        PdfSettingsOptions.PageFittingCrop,
     )
     val appearanceOptions = listOf(
         PdfSettingsOptions.AppearanceLight,
         PdfSettingsOptions.AppearanceDark,
         PdfSettingsOptions.AppearanceAutomatic
+    )
+    val singleFingerHorizontalMovementOptions = listOf(
+        PdfSettingsOptions.SingleFingerHorizontalMovementAllow,
+        PdfSettingsOptions.SingleFingerHorizontalMovementDisallow,
     )
     val landscapeOrientationOptions = listOf(
         PdfSettingsOptions.LandscapeOrientationNormal,

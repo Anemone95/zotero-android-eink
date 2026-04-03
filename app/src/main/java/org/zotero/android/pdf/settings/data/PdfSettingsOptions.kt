@@ -17,10 +17,14 @@ enum class PdfSettingsOptions(@StringRes val optionStringId: Int) {
 
     PageFittingFit(Strings.pdf_settings_page_fitting_fit),
     PageFittingFill(Strings.pdf_settings_page_fitting_fill),
+    PageFittingCrop(Strings.pdf_settings_page_fitting_crop),
 
     AppearanceLight(Strings.pdf_settings_appearance_light_mode),
     AppearanceDark(Strings.pdf_settings_appearance_dark_mode),
     AppearanceAutomatic(Strings.pdf_settings_appearance_auto),
+
+    SingleFingerHorizontalMovementAllow(Strings.pdf_settings_single_finger_horizontal_page_movement_allow),
+    SingleFingerHorizontalMovementDisallow(Strings.pdf_settings_single_finger_horizontal_page_movement_disallow),
 
     LandscapeOrientationNormal(Strings.pdf_settings_landscape_orientation_normal),
     LandscapeOrientationReverse(Strings.pdf_settings_landscape_orientation_reverse),

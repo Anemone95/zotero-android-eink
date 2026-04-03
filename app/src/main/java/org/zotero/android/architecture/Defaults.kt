@@ -7,11 +7,13 @@ import org.zotero.android.database.objects.AnnotationsConfig
 import org.zotero.android.files.DataMarshaller
 import org.zotero.android.pdf.data.PDFSettings
 import org.zotero.android.pdf.data.LandscapeOrientation
+import org.zotero.android.pdf.data.SavedCropConfiguration
 import org.zotero.android.screens.allitems.data.ItemsSortType
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMethod
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMode
 import org.zotero.android.screens.htmlepub.settings.data.HtmlEpubSettings
 import org.zotero.android.screens.itemdetails.data.ItemDetailCreator
+import org.zotero.android.sync.LibraryIdentifier
 import org.zotero.android.webdav.data.WebDavScheme
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +41,7 @@ open class Defaults @Inject constructor(
     private val isDebugLogEnabled = "isDebugLogEnabled"
     private val wasPspdfkitInitialized = "wasPspdfkitInitialized"
     private val pdfSettings = "pdfSettings"
+    private val pdfCropConfigurationPrefix = "pdfCropConfiguration"
     private val highlightColorHex = "highlightColorHex"
     private val noteColorHex = "noteColorHex"
     private val squareColorHex = "squareColorHex"
@@ -245,7 +248,18 @@ open class Defaults @Inject constructor(
             this.pdfSettings,
             null
         ) ?: return PDFSettings.default()
-        val pdfSettings: PDFSettings = dataMarshaller.unmarshal(json)
+        val pdfSettings: PDFSettings = try {
+            dataMarshaller.unmarshal(json)
+        } catch (_: Exception) {
+            val migratedJson = json.replace("\"pageFitting\":\"CROP\"", "\"pageFitting\":\"FIT\"")
+            val migratedSettings = runCatching<PDFSettings> {
+                dataMarshaller.unmarshal(migratedJson)
+            }.getOrElse {
+                PDFSettings.default()
+            }
+            setPDFSettings(migratedSettings)
+            migratedSettings
+        }
         if (pdfSettings.landscapeOrientation == null) {
             pdfSettings.landscapeOrientation = LandscapeOrientation.REVERSE
             setPDFSettings(pdfSettings)
@@ -258,6 +272,46 @@ open class Defaults @Inject constructor(
     ) {
         val json = dataMarshaller.marshal(pdfSettings)
         sharedPreferences.edit { putString(this@Defaults.pdfSettings, json) }
+    }
+
+    fun getSavedPdfCropConfiguration(
+        attachmentKey: String,
+        libraryId: LibraryIdentifier,
+    ): SavedCropConfiguration? {
+        val json = sharedPreferences.getString(pdfCropConfigurationKey(attachmentKey, libraryId), null)
+            ?: return null
+        return try {
+            dataMarshaller.unmarshal(json)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun setSavedPdfCropConfiguration(
+        attachmentKey: String,
+        libraryId: LibraryIdentifier,
+        configuration: SavedCropConfiguration,
+    ) {
+        val json = dataMarshaller.marshal(configuration)
+        sharedPreferences.edit {
+            putString(pdfCropConfigurationKey(attachmentKey, libraryId), json)
+        }
+    }
+
+    fun clearSavedPdfCropConfiguration(
+        attachmentKey: String,
+        libraryId: LibraryIdentifier,
+    ) {
+        sharedPreferences.edit {
+            remove(pdfCropConfigurationKey(attachmentKey, libraryId))
+        }
+    }
+
+    private fun pdfCropConfigurationKey(
+        attachmentKey: String,
+        libraryId: LibraryIdentifier,
+    ): String {
+        return "$pdfCropConfigurationPrefix:${libraryId.folderName}:$attachmentKey"
     }
 
     fun showCollectionItemCounts(): Boolean {

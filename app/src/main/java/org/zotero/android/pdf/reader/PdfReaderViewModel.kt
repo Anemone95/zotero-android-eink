@@ -2,6 +2,8 @@ package org.zotero.android.pdf.reader
 
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.RectF
 import android.net.Uri
@@ -154,6 +156,7 @@ import org.zotero.android.pdf.data.PdfAnnotationChanges
 import org.zotero.android.pdf.data.PdfReaderArgs
 import org.zotero.android.pdf.data.PdfReaderCurrentThemeEventStream
 import org.zotero.android.pdf.data.PdfReaderThemeDecider
+import org.zotero.android.pdf.data.SavedCropConfiguration
 import org.zotero.android.pdf.pdffilter.data.PdfFilterArgs
 import org.zotero.android.pdf.pdffilter.data.PdfFilterResult
 import org.zotero.android.pdf.reader.AnnotationKey.Kind
@@ -193,6 +196,8 @@ import java.util.Timer
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlin.concurrent.timerTask
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 @HiltViewModel
@@ -260,7 +265,8 @@ class PdfReaderViewModel @Inject constructor(
 
     private var annotationEditReaderKey: AnnotationKey? = null
     private var isLongPressOnTextAnnotation = false
-
+    private var cropPageJob: Job? = null
+    private var savedCropConfiguration: SavedCropConfiguration? = null
     override fun preferredLandscapeScreenOrientation(): Int {
         return when (defaults.getPDFSettings().landscapeOrientation ?: LandscapeOrientation.REVERSE) {
             LandscapeOrientation.NORMAL -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -295,6 +301,13 @@ class PdfReaderViewModel @Inject constructor(
         }
 
         onStorePageFlow.tryEmit(event.pageIndex)
+        if (defaults.getPDFSettings().pageFitting == PageFitting.CROP) {
+            if (savedCropConfiguration == null) {
+                cropPage(event.pageIndex)
+            } else {
+                applySavedCropConfiguration(event.pageIndex)
+            }
+        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -403,6 +416,9 @@ class PdfReaderViewModel @Inject constructor(
     private fun update(pdfSettings: PDFSettings) {
         defaults.setPDFSettings(pdfSettings)
         pdfReaderThemeDecider.setPdfPageAppearanceMode(pdfSettings.appearanceMode)
+        updateState {
+            copy(isFixedCropModeEnabled = !pdfSettings.allowsSingleFingerHorizontalPageMovement)
+        }
         replaceFragment()
     }
 
@@ -466,6 +482,9 @@ class PdfReaderViewModel @Inject constructor(
             setupAnnotationChangedDebouncerFlow()
 
             val pdfSettings = defaults.getPDFSettings()
+            updateState {
+                copy(isFixedCropModeEnabled = !pdfSettings.allowsSingleFingerHorizontalPageMovement)
+            }
             pdfReaderThemeDecider.setPdfPageAppearanceMode(pdfSettings.appearanceMode)
             val configuration = generatePdfConfiguration(pdfSettings)
             this@PdfReaderViewModel.pdfUiFragment = PdfUiFragmentBuilder
@@ -648,6 +667,549 @@ class PdfReaderViewModel @Inject constructor(
         setupInteractionListeners()
         loadOutlines()
         loadThumbnails()
+        if (defaults.getPDFSettings().pageFitting == PageFitting.CROP) {
+            if (savedCropConfiguration == null) {
+                cropPage(pdfUiFragment.pageIndex)
+            } else {
+                applySavedCropConfiguration(pdfUiFragment.pageIndex)
+            }
+        }
+    }
+
+    override fun cropCurrentPage() {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        Timber.d("Crop button tapped: currentPage=%s", pdfUiFragment.pageIndex)
+        cropPage(pdfUiFragment.pageIndex)
+    }
+
+    private fun cropPage(pageIndex: Int) {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        cropPageJob?.cancel()
+        cropPageJob = viewModelScope.launch {
+            val cropConfiguration = withContext(dispatcher) {
+                detectConservativeCropConfiguration(
+                    centerPageIndex = pageIndex,
+                    document = document,
+                )
+            } ?: run {
+                Timber.d("Crop scan result: no detectable horizontal bounds for currentPage=%s", pageIndex)
+                return@launch
+            }
+            savedCropConfiguration = cropConfiguration
+            defaults.setSavedPdfCropConfiguration(
+                attachmentKey = viewState.key,
+                libraryId = viewState.library.identifier,
+                configuration = cropConfiguration,
+            )
+            Timber.d(
+                "Crop applied: currentPage=%s savedConfiguration=%s",
+                pageIndex,
+                cropConfiguration,
+            )
+            handler.post {
+                applyCropConfigurationOnMainThread(
+                    pageIndex = pageIndex,
+                    configuration = cropConfiguration,
+                    reason = "button",
+                )
+            }
+        }
+    }
+
+    private fun applySavedCropConfiguration(pageIndex: Int) {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        val configuration = savedCropConfiguration ?: run {
+            cropPage(pageIndex)
+            return
+        }
+        handler.post {
+            applyCropConfigurationOnMainThread(
+                pageIndex = pageIndex,
+                configuration = configuration,
+                reason = "saved",
+            )
+        }
+    }
+
+    private fun detectConservativeCropConfiguration(
+        centerPageIndex: Int,
+        document: PdfDocument,
+    ): SavedCropConfiguration? {
+        val startPageIndex = maxOf(0, centerPageIndex - 2)
+        val endPageIndex = minOf(document.pageCount - 1, centerPageIndex + 2)
+        Timber.d(
+            "Crop scan range: currentPage=%s startPage=%s endPage=%s",
+            centerPageIndex,
+            startPageIndex,
+            endPageIndex,
+        )
+        val configurationsByPage = linkedMapOf<Int, SavedCropConfiguration>()
+        for (pageIndex in startPageIndex..endPageIndex) {
+            val configuration = createSavedCropConfiguration(
+                horizontalBounds = detectHorizontalContentBounds(pageIndex = pageIndex, document = document)
+                    ?: continue,
+                document = document,
+                pageIndex = pageIndex,
+            ) ?: continue
+            Timber.d("Crop detected horizontal configuration: page=%s configuration=%s", pageIndex, configuration)
+            configurationsByPage[pageIndex] = configuration
+        }
+
+        if (configurationsByPage.isEmpty()) {
+            Timber.d("Crop scan result: no detectable horizontal bounds")
+            return null
+        }
+
+        val configurations = configurationsByPage.values.toList()
+        val left = configurations.minOf { it.leftFraction }
+        val right = configurations.maxOf { it.rightFraction }
+        if (right <= left) {
+            Timber.d(
+                "Crop scan result invalid: left=%s right=%s",
+                left,
+                right,
+            )
+            return null
+        }
+
+        return SavedCropConfiguration(
+            leftFraction = left,
+            topFraction = 0f,
+            rightFraction = right,
+            bottomFraction = 0f,
+        ).also {
+            Timber.d(
+                "Crop conservative configuration: currentPage=%s finalConfiguration=%s",
+                centerPageIndex,
+                it,
+            )
+        }
+    }
+
+    private fun createSavedCropConfiguration(
+        horizontalBounds: Pair<Float, Float>,
+        document: PdfDocument,
+        pageIndex: Int,
+    ): SavedCropConfiguration? {
+        val pageSize = document.getPageSize(pageIndex)
+        if (pageSize.width <= 0f || pageSize.height <= 0f) {
+            return null
+        }
+
+        val left = (horizontalBounds.first / pageSize.width).coerceIn(0f, 1f)
+        val right = (horizontalBounds.second / pageSize.width).coerceIn(0f, 1f)
+
+        if (right <= left) {
+            return null
+        }
+
+        return SavedCropConfiguration(
+            leftFraction = left,
+            topFraction = 0f,
+            rightFraction = right,
+            bottomFraction = 0f,
+        )
+    }
+
+    private fun detectHorizontalContentBounds(
+        pageIndex: Int,
+        document: PdfDocument,
+    ): Pair<Float, Float>? {
+        val textBounds = detectTextHorizontalBounds(pageIndex, document)
+        if (textBounds != null) {
+            Timber.d(
+                "Crop detected text horizontal bounds: page=%s left=%s right=%s",
+                pageIndex,
+                textBounds.first,
+                textBounds.second,
+            )
+            return textBounds
+        }
+        val bitmapBounds = detectBitmapHorizontalBounds(pageIndex, document)
+        if (bitmapBounds != null) {
+            Timber.d(
+                "Crop detected bitmap horizontal bounds: page=%s left=%s right=%s",
+                pageIndex,
+                bitmapBounds.first,
+                bitmapBounds.second,
+            )
+        }
+        return bitmapBounds
+    }
+
+    private fun applyCropConfigurationOnMainThread(
+        pageIndex: Int,
+        configuration: SavedCropConfiguration,
+        reason: String,
+        retriesRemaining: Int = 2,
+    ) {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        if (pdfUiFragment.pageIndex != pageIndex) {
+            return
+        }
+
+        val visibleRect = currentVisiblePdfRect(pageIndex)
+        if (visibleRect == null) {
+            Timber.d(
+                "Crop apply waiting for visible rect: reason=%s page=%s visiblePages=%s retriesRemaining=%s",
+                reason,
+                pageIndex,
+                pdfFragment.visiblePages,
+                retriesRemaining,
+            )
+            if (retriesRemaining > 0) {
+                handler.postDelayed(
+                    {
+                        applyCropConfigurationOnMainThread(
+                            pageIndex = pageIndex,
+                            configuration = configuration,
+                            reason = reason,
+                            retriesRemaining = retriesRemaining - 1,
+                        )
+                    },
+                    32L,
+                )
+            }
+            return
+        }
+
+        val cropRect = buildHorizontalCropRect(
+            configuration = configuration,
+            document = document,
+            pageIndex = pageIndex,
+            visibleRect = visibleRect,
+        ) ?: run {
+            Timber.d(
+                "Crop apply skipped: reason=%s page=%s configuration=%s visibleRect=%s",
+                reason,
+                pageIndex,
+                configuration,
+                visibleRect,
+            )
+            return
+        }
+
+        Timber.d(
+            "Crop apply rect: reason=%s page=%s visibleRect=%s targetRect=%s configuration=%s",
+            reason,
+            pageIndex,
+            visibleRect,
+            cropRect,
+            configuration,
+        )
+        pdfFragment.zoomTo(cropRect, pageIndex, 0L)
+    }
+
+    private fun currentVisiblePdfRect(pageIndex: Int): RectF? {
+        val rect = RectF()
+        val hasVisibleRect = pdfFragment.getVisiblePdfRect(rect, pageIndex)
+        Timber.d(
+            "Crop viewport: page=%s hasVisibleRect=%s visiblePages=%s rect=%s",
+            pageIndex,
+            hasVisibleRect,
+            pdfFragment.visiblePages,
+            rect,
+        )
+        if (!hasVisibleRect || rect.right <= rect.left || rect.top <= rect.bottom) {
+            return null
+        }
+        return rect
+    }
+
+    private fun buildHorizontalCropRect(
+        configuration: SavedCropConfiguration,
+        document: PdfDocument,
+        pageIndex: Int,
+        visibleRect: RectF,
+    ): RectF? {
+        val pageSize = document.getPageSize(pageIndex)
+        if (pageSize.width <= 0f || pageSize.height <= 0f) {
+            return null
+        }
+
+        val currentVisibleWidth = visibleRect.right - visibleRect.left
+        val currentVisibleHeight = visibleRect.top - visibleRect.bottom
+        val targetLeft = (configuration.leftFraction * pageSize.width).coerceIn(0f, pageSize.width)
+        val targetRight = (configuration.rightFraction * pageSize.width).coerceIn(0f, pageSize.width)
+        val targetWidth = targetRight - targetLeft
+
+        if (currentVisibleWidth <= 0f || currentVisibleHeight <= 0f || targetWidth <= 0f) {
+            return null
+        }
+
+        val currentCenterY = (visibleRect.top + visibleRect.bottom) / 2f
+        val targetHeight = (currentVisibleHeight * (targetWidth / currentVisibleWidth))
+            .coerceAtLeast(pageSize.height * 0.05f)
+        if (targetHeight >= pageSize.height) {
+            return RectF(targetLeft, pageSize.height, targetRight, 0f)
+        }
+
+        var targetTop = currentCenterY + (targetHeight / 2f)
+        var targetBottom = currentCenterY - (targetHeight / 2f)
+        if (targetTop > pageSize.height) {
+            val overflow = targetTop - pageSize.height
+            targetTop = pageSize.height
+            targetBottom -= overflow
+        }
+        if (targetBottom < 0f) {
+            val overflow = -targetBottom
+            targetBottom = 0f
+            targetTop += overflow
+        }
+
+        targetTop = targetTop.coerceIn(0f, pageSize.height)
+        targetBottom = targetBottom.coerceIn(0f, pageSize.height)
+        if (targetRight <= targetLeft || targetTop <= targetBottom) {
+            return null
+        }
+        return RectF(targetLeft, targetTop, targetRight, targetBottom)
+    }
+
+    private fun detectTextHorizontalBounds(pageIndex: Int, document: PdfDocument): Pair<Float, Float>? {
+        val pageText = document.getPageText(pageIndex)
+        if (pageText.isBlank()) {
+            return null
+        }
+
+        val rects = document.getPageTextRects(pageIndex, 0, pageText.length)
+        if (rects.isEmpty()) {
+            return null
+        }
+
+        val pageSize = document.getPageSize(pageIndex)
+        val bodyBottomThreshold = pageSize.height * 0.08f
+        val bodyTopThreshold = pageSize.height * 0.9f
+        val lineTolerance = pageSize.height * 0.006f
+        val segmentGapThreshold = pageSize.width * 0.015f
+        val denseSegmentWidthThreshold = pageSize.width * 0.18f
+        val narrowEdgeSegmentThreshold = pageSize.width * 0.08f
+        val edgeMarginThreshold = pageSize.width * 0.1f
+
+        data class LineBounds(
+            var left: Float,
+            var right: Float,
+            var top: Float,
+            var bottom: Float,
+            val rects: MutableList<RectF> = mutableListOf(),
+        ) {
+            val width: Float get() = right - left
+            val centerY: Float get() = (top + bottom) / 2f
+        }
+
+        data class SegmentBounds(
+            val left: Float,
+            val right: Float,
+            val top: Float,
+            val bottom: Float,
+        ) {
+            val width: Float get() = right - left
+            val centerY: Float get() = (top + bottom) / 2f
+        }
+
+        val sortedRects = rects
+            .filter { rect ->
+                val centerY = (rect.top + rect.bottom) / 2f
+                centerY in bodyBottomThreshold..bodyTopThreshold
+            }
+            .sortedByDescending { (it.top + it.bottom) / 2f }
+        if (sortedRects.isEmpty()) {
+            return null
+        }
+        val lines = mutableListOf<LineBounds>()
+        sortedRects.forEach { rect ->
+            val centerY = (rect.top + rect.bottom) / 2f
+            val existing = lines.firstOrNull { abs(it.centerY - centerY) <= lineTolerance }
+            if (existing == null) {
+                lines.add(
+                    LineBounds(
+                        left = rect.left,
+                        right = rect.right,
+                        top = rect.top,
+                        bottom = rect.bottom,
+                        rects = mutableListOf(rect),
+                    )
+                )
+            } else {
+                existing.left = minOf(existing.left, rect.left)
+                existing.right = maxOf(existing.right, rect.right)
+                existing.top = maxOf(existing.top, rect.top)
+                existing.bottom = minOf(existing.bottom, rect.bottom)
+                existing.rects.add(rect)
+            }
+        }
+
+        val denseSegments = lines
+            .flatMap { line ->
+                val sortedLineRects = line.rects.sortedBy { it.left }
+                if (sortedLineRects.isEmpty()) {
+                    emptyList()
+                } else {
+                    buildList {
+                        var segmentLeft = sortedLineRects.first().left
+                        var segmentRight = sortedLineRects.first().right
+                        var segmentTop = sortedLineRects.first().top
+                        var segmentBottom = sortedLineRects.first().bottom
+
+                        sortedLineRects.drop(1).forEach { rect ->
+                            if (rect.left - segmentRight > segmentGapThreshold) {
+                                add(
+                                    SegmentBounds(
+                                        left = segmentLeft,
+                                        right = segmentRight,
+                                        top = segmentTop,
+                                        bottom = segmentBottom,
+                                    )
+                                )
+                                segmentLeft = rect.left
+                                segmentRight = rect.right
+                                segmentTop = rect.top
+                                segmentBottom = rect.bottom
+                            } else {
+                                segmentRight = maxOf(segmentRight, rect.right)
+                                segmentTop = maxOf(segmentTop, rect.top)
+                                segmentBottom = minOf(segmentBottom, rect.bottom)
+                            }
+                        }
+
+                        add(
+                            SegmentBounds(
+                                left = segmentLeft,
+                                right = segmentRight,
+                                top = segmentTop,
+                                bottom = segmentBottom,
+                            )
+                        )
+                    }
+                }
+            }
+            .filter { segment ->
+                segment.width >= denseSegmentWidthThreshold &&
+                    !(
+                        segment.width <= narrowEdgeSegmentThreshold &&
+                            (
+                                segment.left <= edgeMarginThreshold ||
+                                    pageSize.width - segment.right <= edgeMarginThreshold
+                                )
+                        )
+            }
+            .sortedByDescending { it.centerY }
+        if (denseSegments.size < 6) {
+            return null
+        }
+
+        val sortedLefts = denseSegments.map { it.left }.sorted()
+        val sortedRights = denseSegments.map { it.right }.sorted()
+        val leftPadding = pageSize.width * 0.012f
+        val rightPadding = pageSize.width * 0.02f
+        val left = (percentile(sortedLefts, 0.12f) - leftPadding).coerceAtLeast(0f)
+        val right = (percentile(sortedRights, 0.88f) + rightPadding).coerceAtMost(pageSize.width)
+        if (right - left <= pageSize.width * 0.2f) {
+            return null
+        }
+        return left to right
+    }
+
+    private fun detectBitmapHorizontalBounds(pageIndex: Int, document: PdfDocument): Pair<Float, Float>? {
+        val pageSize = document.getPageSize(pageIndex)
+        if (pageSize.width <= 0f || pageSize.height <= 0f) {
+            return null
+        }
+
+        val bitmapWidth = 1000
+        val bitmapHeight = ((bitmapWidth * (pageSize.height / pageSize.width)).roundToInt()).coerceAtLeast(1)
+        val bitmap = document.renderPageToBitmap(context, pageIndex, bitmapWidth, bitmapHeight)
+        try {
+            val bounds = detectMainContentHorizontalBounds(bitmap) ?: return null
+            val scaleX = pageSize.width / bitmap.width.toFloat()
+            val left = bounds.first * scaleX
+            val right = bounds.second * scaleX
+            if (right - left <= pageSize.width * 0.2f) {
+                return null
+            }
+            return left to right
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun detectMainContentHorizontalBounds(bitmap: Bitmap): Pair<Float, Float>? {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        val bodyTopBoundary = (height * 0.1f).toInt()
+        val bodyBottomBoundary = (height * 0.92f).toInt()
+
+        val rowDarkCounts = IntArray(height)
+        val rowLefts = IntArray(height) { width }
+        val rowRights = IntArray(height) { -1 }
+        val denseRowThreshold = maxOf(width / 40, 18)
+
+        for (y in 0 until height) {
+            if (y < bodyTopBoundary || y > bodyBottomBoundary) {
+                continue
+            }
+            val rowOffset = y * width
+            for (x in 0 until width) {
+                val pixel = pixels[rowOffset + x]
+                if (isForegroundPixel(pixel)) {
+                    rowDarkCounts[y]++
+                    if (x < rowLefts[y]) rowLefts[y] = x
+                    if (x > rowRights[y]) rowRights[y] = x
+                }
+            }
+        }
+
+        val leftCandidates = mutableListOf<Float>()
+        val rightCandidates = mutableListOf<Float>()
+        for (y in bodyTopBoundary..bodyBottomBoundary) {
+            if (rowDarkCounts[y] >= denseRowThreshold && rowRights[y] > rowLefts[y]) {
+                leftCandidates.add(rowLefts[y].toFloat())
+                rightCandidates.add(rowRights[y].toFloat())
+            }
+        }
+        if (leftCandidates.size < 3) {
+            return null
+        }
+
+        leftCandidates.sort()
+        rightCandidates.sort()
+        val leftPadding = width * 0.012f
+        val rightPadding = width * 0.02f
+        val left = (percentile(leftCandidates, 0.12f) - leftPadding).coerceAtLeast(0f)
+        val right = (percentile(rightCandidates, 0.88f) + rightPadding).coerceAtMost((width - 1).toFloat())
+        if (right - left <= width * 0.2f) {
+            return null
+        }
+        return left to right
+    }
+
+    private fun isForegroundPixel(pixel: Int): Boolean {
+        if (Color.alpha(pixel) < 20) {
+            return false
+        }
+        val luminance =
+            (0.299f * Color.red(pixel)) +
+                (0.587f * Color.green(pixel)) +
+                (0.114f * Color.blue(pixel))
+        return luminance < 235f
+    }
+
+    private fun percentile(values: List<Float>, fraction: Float): Float {
+        if (values.isEmpty()) {
+            return 0f
+        }
+        val index = (values.lastIndex * fraction.coerceIn(0f, 1f)).roundToInt()
+            .coerceIn(0, values.lastIndex)
+        return values[index]
     }
 
     private fun loadThumbnails() {
@@ -882,6 +1444,10 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private suspend fun loadDocumentData() {
+        savedCropConfiguration = defaults.getSavedPdfCropConfiguration(
+            attachmentKey = viewState.key,
+            libraryId = viewState.library.identifier,
+        )
         val key = viewState.key
         val library = viewState.library
         val dbResult = loadAnnotationsAndPage(key = key, library = library)
@@ -2207,6 +2773,7 @@ class PdfReaderViewModel @Inject constructor(
         val fitMode = when (pdfSettings.pageFitting) {
             PageFitting.FIT -> PageFitMode.FIT_TO_WIDTH
             PageFitting.FILL -> PageFitMode.FIT_TO_SCREEN
+            PageFitting.CROP -> PageFitMode.FIT_TO_WIDTH
         }
         val isCalculatedThemeDark = pdfReaderCurrentThemeEventStream.currentValue()!!.isDark
         val themeMode = when (isCalculatedThemeDark) {
@@ -3708,6 +4275,7 @@ data class PdfReaderViewState(
     val showSingleCitationScreen: Boolean = false,
     val isGeneratingBibliography: Boolean = false,
     val isExportingAnnotatedPdf: Boolean = false,
+    val isFixedCropModeEnabled: Boolean = false,
 ) : ViewState {
 
     fun isAnnotationSelected(annotationKey: String): Boolean {

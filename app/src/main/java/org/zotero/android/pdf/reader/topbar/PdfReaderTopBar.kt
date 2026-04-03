@@ -161,6 +161,29 @@ internal fun PdfReaderTopBar(
                     4.dp
                 ),
                 tooltip = {
+                    PlainTooltip {
+                        Text(
+                            stringResource(
+                                Strings.pdf_reader_crop_page
+                            )
+                        )
+                    }
+                },
+                state = rememberTooltipState()
+            ) {
+                IconWithPaddingM3(
+                    unselectedDrawableRes = Drawables.crop_24,
+                    selectedDrawableRes = Drawables.crop_24,
+                    onToggle = viewModel::cropCurrentPage,
+                    isSelected = false
+                )
+            }
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(
+                    TooltipAnchorPosition.Below,
+                    4.dp
+                ),
+                tooltip = {
                     PlainTooltip() {
                         Text(
                             stringResource(

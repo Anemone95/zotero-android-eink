@@ -63,7 +63,7 @@ internal fun NavGraphBuilder.pdfReaderScreenAndNavigationForTablet(
     }
     dialogFixedDimens(
         modifier = Modifier
-            .height(500.dp)
+            .height(680.dp)
             .width(420.dp),
         route = "${PdfReaderDestinations.PDF_SETTINGS}/{$ARG_PDF_SETTINGS_SCREEN}",
         arguments = listOf(

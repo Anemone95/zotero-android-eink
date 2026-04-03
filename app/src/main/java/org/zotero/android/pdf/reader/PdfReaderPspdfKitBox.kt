@@ -75,7 +75,10 @@ internal fun PdfReaderPspdfKitBox(
                 )
             }
     ) {
-        PdfReaderPspdfKitView(vMInterface = vMInterface)
+        PdfReaderPspdfKitView(
+            vMInterface = vMInterface,
+            isFixedCropModeEnabled = viewState.isFixedCropModeEnabled,
+        )
         if (viewState.showCreationToolbar) {
             PdfReaderAnnotationCreationToolbar(
                 viewState = viewState,
@@ -98,4 +101,3 @@ enum class DragAnchors(val fraction: Float) {
     Start(0f),
     End(1f),
 }
-

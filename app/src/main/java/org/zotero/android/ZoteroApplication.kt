@@ -75,7 +75,7 @@ open class ZoteroApplication: Application(), DefaultLifecycleObserver {
             if (BuildConfig.PSPDFKIT_KEY.isNotBlank()) {
                 PSPDFKit.initialize(context, BuildConfig.PSPDFKIT_KEY)
             } else {
-                PSPDFKit.initialize(context, null)
+                PSPDFKit.initialize(context)
             }
         } catch (e: Exception) {
             Timber.e(e, "Unable to initialize PSPDFKIT")

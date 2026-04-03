@@ -16,7 +16,7 @@ enum class PageScrollDirection {
 }
 
 enum class PageFitting {
-    FIT, FILL
+    FIT, FILL, CROP
 }
 
 enum class PageAppearanceMode {
@@ -34,6 +34,7 @@ data class PDFSettings(
     var pageFitting: PageFitting,
     var appearanceMode: PageAppearanceMode,
     var landscapeOrientation: LandscapeOrientation?,
+    var allowsSingleFingerHorizontalPageMovement: Boolean,
     var idleTimerDisabled: Boolean,
 ) {
     companion object {
@@ -45,6 +46,7 @@ data class PDFSettings(
                 pageFitting = PageFitting.FIT,
                 appearanceMode = PageAppearanceMode.AUTOMATIC,
                 landscapeOrientation = LandscapeOrientation.REVERSE,
+                allowsSingleFingerHorizontalPageMovement = false,
                 idleTimerDisabled = false
             )
         }

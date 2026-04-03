@@ -34,8 +34,8 @@ android {
         applicationId = BuildConfig.appId
         minSdk = BuildConfig.minSdkVersion
         targetSdk = BuildConfig.targetSdk
-        versionCode = BuildConfig.versionCode
-        versionName = BuildConfig.version.name
+        versionCode = 0xe5
+        versionName = "1.0.0-229"
         testInstrumentationRunner = Libs.androidJUnitRunner
 
         buildConfigField("String", "BASE_API_URL", "\"https://api.zotero.org\"")
@@ -104,7 +104,6 @@ android {
         dev {
             resValue("string", "app_name", """"Zotero Debug""")
             buildConfigField("String", "PSPDFKIT_KEY", readPspdfkitKey())
-            applicationIdSuffix = ".debug"
         }
         internal {
             resValue("string", "app_name", """"Zotero""")

@@ -51,6 +51,13 @@ internal fun PdfSettingsTable(
         )
 
         pdfSettingsSettingRow(
+            titleResId = Strings.pdf_settings_single_finger_horizontal_page_movement_title,
+            options = viewState.singleFingerHorizontalMovementOptions,
+            selectedOption = viewState.selectedSingleFingerHorizontalMovementOption,
+            optionSelected = viewModel::onOptionSelected
+        )
+
+        pdfSettingsSettingRow(
             titleResId = Strings.pdf_settings_landscape_orientation_title,
             options = viewState.landscapeOrientationOptions,
             selectedOption = viewState.selectedLandscapeOrientationOption,

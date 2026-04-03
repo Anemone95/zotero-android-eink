@@ -34,13 +34,13 @@ internal fun LazyListScope.pdfSettingsSettingRow(
 ) {
     item {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(id = titleResId),
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             val optionsList = options.map { opt ->
                 MultiSelectorOption(

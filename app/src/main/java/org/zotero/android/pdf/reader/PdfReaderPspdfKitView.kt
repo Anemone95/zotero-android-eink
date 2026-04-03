@@ -1,5 +1,7 @@
 package org.zotero.android.pdf.reader
 
+import android.content.Context
+import android.view.MotionEvent
 import android.content.res.Resources
 import android.util.TypedValue
 import android.widget.FrameLayout
@@ -18,7 +20,8 @@ import timber.log.Timber
 
 @Composable
 fun PdfReaderPspdfKitView(
-    vMInterface: PdfReaderVMInterface
+    vMInterface: PdfReaderVMInterface,
+    isFixedCropModeEnabled: Boolean,
 ) {
     val activity = LocalActivity.current as? AppCompatActivity ?: return
     val annotationMaxSideSize = annotationMaxSideSize()
@@ -29,7 +32,9 @@ fun PdfReaderPspdfKitView(
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
-            val frameLayout = FrameLayout(context)
+            val frameLayout = SingleFingerVerticalOnlyFrameLayout(context).apply {
+                lockHorizontalSingleFingerPan = isFixedCropModeEnabled
+            }
 
             val containerId = R.id.container
             val fragmentContainerView = FragmentContainerView(context).apply {
@@ -46,9 +51,56 @@ fun PdfReaderPspdfKitView(
             )
             frameLayout
         },
-        update = { _ ->
+        update = { frameLayout ->
+            (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.lockHorizontalSingleFingerPan =
+                isFixedCropModeEnabled
         }
     )
+}
+
+private class SingleFingerVerticalOnlyFrameLayout(
+    context: Context,
+) : FrameLayout(context) {
+    var lockHorizontalSingleFingerPan: Boolean = false
+    private var lockedX: Float? = null
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!lockHorizontalSingleFingerPan) {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                lockedX = null
+            }
+            return super.dispatchTouchEvent(event)
+        }
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lockedX = event.x
+            }
+
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount > 1) {
+                    lockedX = null
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                lockedX = null
+            }
+        }
+
+        if (event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 1) {
+            val fixedX = lockedX ?: event.x
+            val adjustedEvent = MotionEvent.obtain(event)
+            adjustedEvent.setLocation(fixedX, event.y)
+            return try {
+                super.dispatchTouchEvent(adjustedEvent)
+            } finally {
+                adjustedEvent.recycle()
+            }
+        }
+
+        return super.dispatchTouchEvent(event)
+    }
 }
 
 @Composable
