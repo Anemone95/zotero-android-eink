@@ -7,6 +7,10 @@ This repository is a custom build of Zotero Android made for e-ink devices.
 
 - A rotate button in the first row of PDF reader actions.
 - A crop feature for the PDF reader that removes left and right page margins for a more full-width reading view.
+- Disallow horizontal page movement using single finger.
+- Separate motion between finger and pen.
+  - Finger can move/zoom PDF, pen/eraser cannot.
+  - Pen/eraser cannot move/zoom PDF.
 - Default PDF scroll direction is set to `Vertical`.
 - Default PDF page mode is set to `Single`.
 
