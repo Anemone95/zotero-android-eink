@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import org.zotero.android.database.objects.AnnotationsConfig
 import org.zotero.android.files.DataMarshaller
 import org.zotero.android.pdf.data.PDFSettings
+import org.zotero.android.pdf.data.LandscapeOrientation
 import org.zotero.android.screens.allitems.data.ItemsSortType
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMethod
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMode
@@ -244,7 +245,12 @@ open class Defaults @Inject constructor(
             this.pdfSettings,
             null
         ) ?: return PDFSettings.default()
-        return dataMarshaller.unmarshal(json)
+        val pdfSettings: PDFSettings = dataMarshaller.unmarshal(json)
+        if (pdfSettings.landscapeOrientation == null) {
+            pdfSettings.landscapeOrientation = LandscapeOrientation.REVERSE
+            setPDFSettings(pdfSettings)
+        }
+        return pdfSettings
     }
 
     fun setPDFSettings(

@@ -2,6 +2,7 @@ package org.zotero.android.pdf.reader
 
 import androidx.compose.ui.graphics.Color
 import androidx.fragment.app.FragmentManager
+import android.content.pm.ActivityInfo
 import com.pspdfkit.ui.special_mode.controller.AnnotationTool
 import org.zotero.android.pdf.cache.AnnotationPreviewMemoryCache
 import org.zotero.android.pdf.data.PDFAnnotation
@@ -59,4 +60,5 @@ interface PdfReaderVMInterface {
     fun onCopyCitation()
     fun onCopyBibliography()
     fun hideCopyCitation()
+    fun preferredLandscapeScreenOrientation(): Int
 }

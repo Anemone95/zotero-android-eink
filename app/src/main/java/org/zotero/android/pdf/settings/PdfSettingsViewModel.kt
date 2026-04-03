@@ -14,6 +14,7 @@ import org.zotero.android.architecture.navigation.NavigationParamsMarshaller
 import org.zotero.android.architecture.require
 import org.zotero.android.pdf.ARG_PDF_SETTINGS_SCREEN
 import org.zotero.android.pdf.data.PDFSettings
+import org.zotero.android.pdf.data.LandscapeOrientation
 import org.zotero.android.pdf.data.PageAppearanceMode
 import org.zotero.android.pdf.data.PageFitting
 import org.zotero.android.pdf.data.PageLayoutMode
@@ -67,7 +68,8 @@ internal class PdfSettingsViewModel @Inject constructor(
                     selectedAppearanceOption = convert(pdfSettings.appearanceMode),
                     selectedPageFittingOption = convert(pdfSettings.pageFitting),
                     selectedPageModeOption = convert(pdfSettings.pageMode),
-                    selectedScrollDirectionOption = convert(pdfSettings.direction)
+                    selectedScrollDirectionOption = convert(pdfSettings.direction),
+                    selectedLandscapeOrientationOption = convert(pdfSettings.landscapeOrientation ?: LandscapeOrientation.REVERSE)
                 )
             }
         }
@@ -86,6 +88,13 @@ internal class PdfSettingsViewModel @Inject constructor(
             PageLayoutMode.SINGLE -> PdfSettingsOptions.PageModeSingle
             PageLayoutMode.DOUBLE -> PdfSettingsOptions.PageModeDouble
             PageLayoutMode.AUTOMATIC -> PdfSettingsOptions.PageModeAutomatic
+        }
+    }
+
+    private fun convert(landscapeOrientation: LandscapeOrientation): PdfSettingsOptions {
+        return when (landscapeOrientation) {
+            LandscapeOrientation.NORMAL -> PdfSettingsOptions.LandscapeOrientationNormal
+            LandscapeOrientation.REVERSE -> PdfSettingsOptions.LandscapeOrientationReverse
         }
     }
 
@@ -138,6 +147,11 @@ internal class PdfSettingsViewModel @Inject constructor(
             PdfSettingsOptions.AppearanceLight, PdfSettingsOptions.AppearanceDark, PdfSettingsOptions.AppearanceAutomatic -> {
                 updateState {
                     copy(selectedAppearanceOption = option)
+                }
+            }
+            PdfSettingsOptions.LandscapeOrientationNormal, PdfSettingsOptions.LandscapeOrientationReverse -> {
+                updateState {
+                    copy(selectedLandscapeOrientationOption = option)
                 }
             }
         }
@@ -194,6 +208,14 @@ internal class PdfSettingsViewModel @Inject constructor(
             PdfSettingsOptions.AppearanceAutomatic -> {
                 pdfSettings.appearanceMode = PageAppearanceMode.AUTOMATIC
             }
+
+            PdfSettingsOptions.LandscapeOrientationNormal -> {
+                pdfSettings.landscapeOrientation = LandscapeOrientation.NORMAL
+            }
+
+            PdfSettingsOptions.LandscapeOrientationReverse -> {
+                pdfSettings.landscapeOrientation = LandscapeOrientation.REVERSE
+            }
         }
     }
 
@@ -213,6 +235,7 @@ internal data class PdfSettingsViewState(
     val selectedScrollDirectionOption: PdfSettingsOptions = PdfSettingsOptions.ScrollDirectionHorizontal,
     val selectedPageFittingOption: PdfSettingsOptions = PdfSettingsOptions.PageFittingFit,
     val selectedAppearanceOption: PdfSettingsOptions = PdfSettingsOptions.AppearanceAutomatic,
+    val selectedLandscapeOrientationOption: PdfSettingsOptions = PdfSettingsOptions.LandscapeOrientationReverse,
     val isDark: Boolean = false,
 ) : ViewState {
 
@@ -237,6 +260,10 @@ internal data class PdfSettingsViewState(
         PdfSettingsOptions.AppearanceLight,
         PdfSettingsOptions.AppearanceDark,
         PdfSettingsOptions.AppearanceAutomatic
+    )
+    val landscapeOrientationOptions = listOf(
+        PdfSettingsOptions.LandscapeOrientationNormal,
+        PdfSettingsOptions.LandscapeOrientationReverse,
     )
 
 }

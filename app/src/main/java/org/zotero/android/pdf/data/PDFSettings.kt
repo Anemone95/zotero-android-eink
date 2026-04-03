@@ -23,6 +23,9 @@ enum class PageAppearanceMode {
     LIGHT, DARK, AUTOMATIC
 }
 
+enum class LandscapeOrientation {
+    NORMAL, REVERSE
+}
 
 data class PDFSettings(
     var transition: PageScrollMode,
@@ -30,16 +33,18 @@ data class PDFSettings(
     var direction: PageScrollDirection,
     var pageFitting: PageFitting,
     var appearanceMode: PageAppearanceMode,
+    var landscapeOrientation: LandscapeOrientation?,
     var idleTimerDisabled: Boolean,
 ) {
     companion object {
         fun default(): PDFSettings {
             return PDFSettings(
                 transition = PageScrollMode.CONTINUOUS,
-                pageMode = PageLayoutMode.AUTOMATIC,
-                direction = PageScrollDirection.HORIZONTAL,
+                pageMode = PageLayoutMode.SINGLE,
+                direction = PageScrollDirection.VERTICAL,
                 pageFitting = PageFitting.FIT,
                 appearanceMode = PageAppearanceMode.AUTOMATIC,
+                landscapeOrientation = LandscapeOrientation.REVERSE,
                 idleTimerDisabled = false
             )
         }

@@ -1,5 +1,6 @@
 package org.zotero.android.pdf.reader
 
+import android.content.pm.ActivityInfo
 import android.view.MotionEvent
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
@@ -51,6 +52,10 @@ internal fun PdfReaderScreen(
     val viewState by viewModel.viewStates.observeAsState(PdfReaderViewState())
     val viewEffect by viewModel.viewEffects.observeAsState()
     val activity = LocalActivity.current ?: return
+    val navigateBackToMain: () -> Unit = {
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        onBack()
+    }
     val currentView = LocalView.current
     ObserveLifecycleEvent { event ->
         when (event) {
@@ -80,7 +85,7 @@ internal fun PdfReaderScreen(
         LaunchedEffect(key1 = viewEffect) {
             when (val consumedEffect = viewEffect?.consume()) {
                 is PdfReaderViewEffect.NavigateBack -> {
-                    onBack()
+                    navigateBackToMain()
                 }
 
                 is PdfReaderViewEffect.DisableForceScreenOn -> {
@@ -192,7 +197,7 @@ internal fun PdfReaderScreen(
                             )
                         } else {
                             PdfReaderTopBar(
-                                onBack = onBack,
+                                onBack = navigateBackToMain,
                                 onShowHideSideBar = viewModel::toggleSideBar,
                                 onShareButtonTapped = viewModel::onShareButtonTapped,
                                 toPdfSettings = viewModel::navigateToPdfSettings,

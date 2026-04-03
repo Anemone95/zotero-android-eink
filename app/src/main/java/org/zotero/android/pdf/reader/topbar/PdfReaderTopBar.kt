@@ -1,5 +1,8 @@
 package org.zotero.android.pdf.reader.topbar
 
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -16,6 +19,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -48,6 +52,8 @@ internal fun PdfReaderTopBar(
     pdfReaderSearchViewState: PdfReaderSearchViewState,
 ) {
     val isTablet = CustomLayoutSize.calculateLayoutType().isTablet()
+    val activity = LocalActivity.current
+    val currentOrientation = LocalConfiguration.current.orientation
 
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
@@ -119,6 +125,36 @@ internal fun PdfReaderTopBar(
             }
 
             Spacer(modifier = Modifier.weight(1f))
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(
+                    TooltipAnchorPosition.Below,
+                    4.dp
+                ),
+                tooltip = {
+                    PlainTooltip {
+                        Text(
+                            stringResource(
+                                Strings.pdf_reader_rotate_screen
+                            )
+                        )
+                    }
+                },
+                state = rememberTooltipState()
+            ) {
+                IconWithPaddingM3(
+                    unselectedDrawableRes = Drawables.screen_rotation_24,
+                    selectedDrawableRes = Drawables.screen_rotation_24,
+                    onToggle = {
+                        activity?.requestedOrientation =
+                            if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            } else {
+                                viewModel.preferredLandscapeScreenOrientation()
+                            }
+                    },
+                    isSelected = false
+                )
+            }
             TooltipBox(
                 positionProvider = rememberTooltipPositionProvider(
                     TooltipAnchorPosition.Below,

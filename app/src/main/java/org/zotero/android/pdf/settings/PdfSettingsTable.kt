@@ -49,5 +49,12 @@ internal fun PdfSettingsTable(
             selectedOption = viewState.selectedAppearanceOption,
             optionSelected = viewModel::onOptionSelected
         )
+
+        pdfSettingsSettingRow(
+            titleResId = Strings.pdf_settings_landscape_orientation_title,
+            options = viewState.landscapeOrientationOptions,
+            selectedOption = viewState.selectedLandscapeOrientationOption,
+            optionSelected = viewModel::onOptionSelected
+        )
     }
 }

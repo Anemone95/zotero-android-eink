@@ -1,6 +1,7 @@
 package org.zotero.android.pdf.reader
 
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.graphics.PointF
 import android.graphics.RectF
 import android.net.Uri
@@ -145,6 +146,7 @@ import org.zotero.android.pdf.data.PDFAnnotation
 import org.zotero.android.pdf.data.PDFDatabaseAnnotation
 import org.zotero.android.pdf.data.PDFDocumentAnnotation
 import org.zotero.android.pdf.data.PDFSettings
+import org.zotero.android.pdf.data.LandscapeOrientation
 import org.zotero.android.pdf.data.PageFitting
 import org.zotero.android.pdf.data.PageLayoutMode
 import org.zotero.android.pdf.data.PageScrollDirection
@@ -258,6 +260,13 @@ class PdfReaderViewModel @Inject constructor(
 
     private var annotationEditReaderKey: AnnotationKey? = null
     private var isLongPressOnTextAnnotation = false
+
+    override fun preferredLandscapeScreenOrientation(): Int {
+        return when (defaults.getPDFSettings().landscapeOrientation ?: LandscapeOrientation.REVERSE) {
+            LandscapeOrientation.NORMAL -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            LandscapeOrientation.REVERSE -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+        }
+    }
 
     private var shouldPreserveFilterResultsBetweenReinitializations = false
 

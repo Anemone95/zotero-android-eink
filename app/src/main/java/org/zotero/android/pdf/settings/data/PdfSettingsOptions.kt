@@ -21,4 +21,7 @@ enum class PdfSettingsOptions(@StringRes val optionStringId: Int) {
     AppearanceLight(Strings.pdf_settings_appearance_light_mode),
     AppearanceDark(Strings.pdf_settings_appearance_dark_mode),
     AppearanceAutomatic(Strings.pdf_settings_appearance_auto),
+
+    LandscapeOrientationNormal(Strings.pdf_settings_landscape_orientation_normal),
+    LandscapeOrientationReverse(Strings.pdf_settings_landscape_orientation_reverse),
 }

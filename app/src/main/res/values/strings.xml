@@ -68,6 +68,10 @@
     <string name="pdf_reader_sidebar">Sidebar</string>
     <string name="pdf_reader_plain_reader">Plain Reader</string>
     <string name="pdf_reader_toolbar">Toolbar</string>
+    <string name="pdf_reader_rotate_screen">Rotate Screen</string>
+    <string name="pdf_settings_landscape_orientation_title">Landscape Orientation</string>
+    <string name="pdf_settings_landscape_orientation_normal">Normal</string>
+    <string name="pdf_settings_landscape_orientation_reverse">Reverse</string>
 
     <string name="items_generating_cit">Generating Citation</string>
 

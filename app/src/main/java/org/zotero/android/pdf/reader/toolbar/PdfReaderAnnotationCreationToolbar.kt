@@ -1,5 +1,4 @@
 package org.zotero.android.pdf.reader.toolbar
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.Orientation
@@ -192,9 +191,7 @@ internal fun BoxScope.PdfReaderAnnotationCreationToolbar(
                             pdfReaderTool = tool,
                             toggleButton = vMInterface::toggle
                         )
-
                     }
-
                 }
             }
             val activeAnnotationTool = vMInterface.activeAnnotationTool
