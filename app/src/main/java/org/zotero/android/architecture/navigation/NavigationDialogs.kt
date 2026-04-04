@@ -3,16 +3,21 @@ package org.zotero.android.architecture.navigation
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.WindowManager
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
@@ -78,16 +83,33 @@ private fun NavGraphBuilder.customDialog(
         )
     ) {
         ApplyDialogWindowSettings()
+        val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
         Box(
-            modifier = dialogModifier
-                .clip(shape = RoundedCornerShape(16.dp))
-                .border(
-                    width = 1.dp,
-                    color = CustomTheme.colors.dialogBorderColor,
-                    shape = RoundedCornerShape(16.dp)
-                )
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        dispatcher?.onBackPressed()
+                    }
+                },
+            contentAlignment = Alignment.Center,
         ) {
-            content()
+            Box(
+                modifier = dialogModifier
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            // Prevent taps inside the dialog from dismissing it.
+                        }
+                    }
+                    .clip(shape = RoundedCornerShape(16.dp))
+                    .border(
+                        width = 1.dp,
+                        color = CustomTheme.colors.dialogBorderColor,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+            ) {
+                content()
+            }
         }
     }
 }

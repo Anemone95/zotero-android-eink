@@ -44,17 +44,18 @@ internal fun PdfAnnotationMoreNavigation(
         popEnterTransition = { if (disableAnimations) EnterTransition.None else slideInHorizontally(initialOffsetX = { -it }) },
         popExitTransition = { if (disableAnimations) ExitTransition.None else slideOutHorizontally(targetOffsetX = { it }) },
     ) {
-        pdfAnnotationMoreNavScreens(args = args, navigation = navigation)
+        pdfAnnotationMoreNavScreens(args = args, navigation = navigation, onClose = onBack)
     }
 }
 
 internal fun NavGraphBuilder.pdfAnnotationMoreNavScreens(
     args: PdfAnnotationMoreArgs,
     navigation: ZoteroNavigation,
+    onClose: () -> Unit,
 ) {
     pdfAnnotationMoreScreen(
         args = args,
-        onBack = navigation::onBack,
+        onBack = onClose,
         navigateToPageEdit = navigation::toPageEdit
     )
     pageEditScreen(onBack = navigation::onBack)

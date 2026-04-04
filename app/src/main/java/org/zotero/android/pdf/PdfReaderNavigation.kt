@@ -85,7 +85,7 @@ internal fun NavGraphBuilder.pdfReaderScreenAndNavigationForTablet(
     ) {
         PdfAnnotationNavigation(
             args = ScreenArguments.pdfAnnotationArgs,
-            onBack = navigation::onBack
+            onBack = { navController.popBackStack() }
         )
     }
     dialogFixedDimens(
@@ -96,7 +96,7 @@ internal fun NavGraphBuilder.pdfReaderScreenAndNavigationForTablet(
     ) {
         PdfAnnotationMoreNavigation(
             args = ScreenArguments.pdfAnnotationMoreArgs,
-            onBack = navigation::onBack
+            onBack = { navController.popBackStack() }
         )
     }
     dialogFixedDimens(

@@ -582,7 +582,11 @@ class PdfReaderViewModel @Inject constructor(
                 pagePosition: PointF?,
                 clickedAnnotation: Annotation?
             ): Boolean {
+                Timber.i("PdfReaderViewModel: onPageClick page=$pageIndex clickedType=${clickedAnnotation?.type} clickedKey=${clickedAnnotation?.key} clickedName=${clickedAnnotation?.name} clickedUuid=${clickedAnnotation?.uuid} isZotero=${clickedAnnotation?.isZoteroAnnotation}")
                 decideTopBarAndBottomBarVisibility(clickedAnnotation)
+                if (clickedAnnotation != null && isAnnotationSelectable(clickedAnnotation)) {
+                    selectAnnotationFromDocument(annotationKey(clickedAnnotation))
+                }
                 return false
             }
         })
@@ -626,6 +630,22 @@ class PdfReaderViewModel @Inject constructor(
 
     }
 
+    private fun isAnnotationSelectable(annotation: Annotation): Boolean {
+        return annotation.isZoteroAnnotation || !setOf(
+            AnnotationType.STAMP,
+            AnnotationType.LINE,
+            AnnotationType.CIRCLE,
+            AnnotationType.SQUARE,
+        ).contains(annotation.type)
+    }
+
+    private fun annotationKey(annotation: Annotation): AnnotationKey {
+        val key = annotation.key ?: annotation.uuid
+        val type = if (annotation.isZoteroAnnotation) Kind.database else Kind.document
+        Timber.i("PdfReaderViewModel: annotationKey type=${annotation.type} key=${annotation.key} name=${annotation.name} uuid=${annotation.uuid} resolvedKey=$key resolvedType=$type isZotero=${annotation.isZoteroAnnotation}")
+        return AnnotationKey(key = key, type = type)
+    }
+
     private fun setOnPreparePopupToolbarListener() {
         this.pdfFragment.setOnPreparePopupToolbarListener { toolbar ->
             val sourceItems = toolbar.menuItems.toMutableList()
@@ -660,7 +680,11 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun setC(color: String, key:String) {
-        val annotation = annotation(AnnotationKey(key = key, type = Kind.database)) ?: return
+        val annotationKey = AnnotationKey(key = key, type = Kind.database)
+        val annotation = annotation(annotationKey)
+        if (annotation == null) {
+            return
+        }
         update(annotation = annotation, color = (color to viewState.isDark), document = this.document)
     }
 
@@ -737,14 +761,14 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
-    override fun onPdfDoubleTap() {
+    override fun onPdfDoubleTap(): Boolean {
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
-            return
+            return false
         }
         val pageIndex = pdfUiFragment.pageIndex
         if (defaults.getPDFSettings().pageFitting != PageFitting.CROP) {
             Timber.d("Double tap ignored because page fitting is not Crop: currentPage=%s", pageIndex)
-            return
+            return false
         }
         Timber.d("Double tap crop restore: currentPage=%s savedConfiguration=%s", pageIndex, savedCropConfiguration)
         if (savedCropConfiguration != null) {
@@ -752,6 +776,7 @@ class PdfReaderViewModel @Inject constructor(
         } else {
             cropPage(pageIndex)
         }
+        return true
     }
 
     override fun onPdfScaleEnd() {
@@ -1478,13 +1503,8 @@ class PdfReaderViewModel @Inject constructor(
                 annotation: Annotation,
                 p2: Boolean
             ): Boolean {
-                if (!annotation.isZoteroAnnotation && setOf(
-                        AnnotationType.STAMP,
-                        AnnotationType.LINE,
-                        AnnotationType.CIRCLE,
-                        AnnotationType.SQUARE
-                    ).contains(annotation.type)
-                ) {
+                Timber.i("PdfReaderViewModel: onPrepareAnnotationSelection type=${annotation.type} key=${annotation.key} name=${annotation.name} uuid=${annotation.uuid} isZotero=${annotation.isZoteroAnnotation}")
+                if (!isAnnotationSelectable(annotation)) {
                     return false
                 }
                 //no-op
@@ -1492,12 +1512,8 @@ class PdfReaderViewModel @Inject constructor(
             }
 
             override fun onAnnotationSelected(annotation: Annotation, annotationCreated: Boolean) {
-                val key = annotation.key ?: annotation.uuid
-                val type: Kind =
-                    if (annotation.isZoteroAnnotation) Kind.database else Kind.document
-                selectAnnotationFromDocument(
-                    key = AnnotationKey(key = key, type = type),
-                )
+                Timber.i("PdfReaderViewModel: onAnnotationSelected type=${annotation.type} key=${annotation.key} name=${annotation.name} uuid=${annotation.uuid} created=$annotationCreated isZotero=${annotation.isZoteroAnnotation}")
+                selectAnnotationFromDocument(annotationKey(annotation))
             }
 
             override fun onAnnotationDeselected(annotation: Annotation, annotationDeleted: Boolean) {
@@ -1932,7 +1948,8 @@ class PdfReaderViewModel @Inject constructor(
         if (changes.isEmpty()) {
             return
         }
-        val key = annotation.key ?: return
+        val key = annotation.key
+        if (key == null) return
 
         annotationPreviewManager.store(
             rawDocument = rawDocument,
@@ -2091,7 +2108,6 @@ class PdfReaderViewModel @Inject constructor(
         pdfReaderNotification: PdfReaderNotification,
         ignoreDebouncer: Boolean = false,
     ) {
-
         when (pdfReaderNotification) {
             PdfReaderNotification.PSPDFAnnotationChanged -> {
                 when (annotation) {
@@ -2354,7 +2370,7 @@ class PdfReaderViewModel @Inject constructor(
                 continue
             }
 
-            val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
+            val pdfAnnotation = this.document.annotation(
                 annotation.page,
                 key.key
             ) ?: continue
@@ -2380,7 +2396,7 @@ class PdfReaderViewModel @Inject constructor(
             }
 
             val oldAnnotation = PDFDatabaseAnnotation.init(item = this.databaseAnnotations!![index]!!) ?: continue
-            val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
+            val pdfAnnotation = this.document.annotation(
                 oldAnnotation.page,
                 oldAnnotation.key
             ) ?: continue
@@ -2562,7 +2578,9 @@ class PdfReaderViewModel @Inject constructor(
             updateState {
                 copy(selectedAnnotationKey = null)
             }
-            selectAndFocusAnnotationInDocument()
+            if (!didSelectInDocument) {
+                selectAndFocusAnnotationInDocument()
+            }
             updateAnnotationsList()
             return
         }
@@ -2596,19 +2614,26 @@ class PdfReaderViewModel @Inject constructor(
                 copy(updatedAnnotationKeys = updatedAnnotationKeys)
             }
         }
-        selectAndFocusAnnotationInDocument()
-        updateAnnotationsList()
+        if (!didSelectInDocument) {
+            selectAndFocusAnnotationInDocument()
+        }
+        updateAnnotationsList(forceNotShowAnnotationPopup = !didSelectInDocument)
     }
 
     private fun updateAnnotationsList(forceNotShowAnnotationPopup: Boolean = false) {
         hidePspdfkitToolbars()
-        var showAnnotationPopup = !forceNotShowAnnotationPopup && !viewState.showSideBar && selectedAnnotation != null
+        val selectedAnnotation = selectedAnnotation
+        val canShowAnnotationPopup = !viewState.showSideBar || isTablet
+        var showAnnotationPopup = !forceNotShowAnnotationPopup && canShowAnnotationPopup && selectedAnnotation != null
         if (selectedAnnotation?.type == org.zotero.android.database.objects.AnnotationType.text && !isLongPressOnTextAnnotation) {
             showAnnotationPopup = false
         }
+        Timber.i(
+            "PdfReaderViewModel: updateAnnotationsList forceNotShow=$forceNotShowAnnotationPopup selectedKey=${viewState.selectedAnnotationKey} selectedAnnotationKey=${selectedAnnotation?.key} selectedAnnotationType=${selectedAnnotation?.type} showSideBar=${viewState.showSideBar} canShowAnnotationPopup=$canShowAnnotationPopup showAnnotationPopup=$showAnnotationPopup isTablet=$isTablet"
+        )
         isLongPressOnTextAnnotation = false
         if (showAnnotationPopup) {
-            annotationEditReaderKey = selectedAnnotation?.readerKey
+            annotationEditReaderKey = viewState.selectedAnnotationKey
             val pdfAnnotationArgs = PdfAnnotationArgs(
                 selectedAnnotation = selectedAnnotation,
                 userId = viewState.userId,
@@ -2637,6 +2662,9 @@ class PdfReaderViewModel @Inject constructor(
             val editingToolbarView = pdfUiFragment
                 .view?.rootView?.findViewById<View>(R.id.pspdf__annotation_editing_toolbar)
             editingToolbarView?.visibility = View.GONE
+            val popupToolbarView = pdfUiFragment
+                .view?.rootView?.findViewById<View>(R.id.pspdf__popup_toolbar)
+            popupToolbarView?.visibility = View.GONE
             val creationToolbarView = pdfUiFragment
                 .view?.rootView?.findViewById<View>(R.id.pspdf__annotation_creation_toolbar)
             creationToolbarView?.visibility = View.GONE
@@ -2731,8 +2759,17 @@ class PdfReaderViewModel @Inject constructor(
     override fun annotation(key: AnnotationKey): PDFAnnotation? {
         return when (key.type) {
             Kind.database -> {
-                this.databaseAnnotations!!.where().key(key.key).findFirst()
+                val databaseAnnotation = this.databaseAnnotations!!.where().key(key.key).findFirst()
                     ?.let { PDFDatabaseAnnotation.init(item = it) }
+                if (databaseAnnotation != null) {
+                    databaseAnnotation
+                } else {
+                    val documentAnnotation = viewState.pdfDocumentAnnotations[key.key]
+                    Timber.i(
+                        "PdfReaderViewModel: annotation lookup fallback key=${key.key} type=${key.type} hasDocumentFallback=${documentAnnotation != null}"
+                    )
+                    documentAnnotation
+                }
             }
 
             Kind.document -> {
@@ -2749,10 +2786,7 @@ class PdfReaderViewModel @Inject constructor(
         contents: String? = null,
         document: PdfDocument
     ) {
-        val pdfAnnotation = document.annotationProvider.getAnnotationBlocking(
-            annotation.page,
-            annotation.key
-        ) ?: return
+        val pdfAnnotation = selectedOrDocumentAnnotation(annotation) ?: return
 
         val changes = mutableListOf<PdfAnnotationChanges>()
 
@@ -2792,9 +2826,7 @@ class PdfReaderViewModel @Inject constructor(
             if (blendMode != null) {
                 pdfAnnotation.blendMode = blendMode
             }
-            if (annotation.type == org.zotero.android.database.objects.AnnotationType.text) {
-                pdfFragment.notifyAnnotationHasChanged(pdfAnnotation)
-            }
+            pdfFragment.notifyAnnotationHasChanged(pdfAnnotation)
         }
 
         if (changes.contains(PdfAnnotationChanges.contents) && contents != null) {
@@ -2806,6 +2838,10 @@ class PdfReaderViewModel @Inject constructor(
             if (textAnnotation != null) {
                 textAnnotation.textSize = fontSize
             }
+        }
+
+        if (!changes.contains(PdfAnnotationChanges.color) && !changes.contains(PdfAnnotationChanges.contents)) {
+            pdfFragment.notifyAnnotationHasChanged(pdfAnnotation)
         }
 
         processAnnotationObserving(
@@ -2956,6 +2992,9 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun deselectSelectedAnnotation(annotation: Annotation) {
+        Timber.i(
+            "PdfReaderViewModel: onAnnotationDeselected type=${annotation.type} key=${annotation.key} name=${annotation.name} uuid=${annotation.uuid} selectedKeyBefore=${viewState.selectedAnnotationKey}"
+        )
         if (annotation.type == AnnotationType.FREETEXT) {
             val contents = annotation.contents
             if (contents.isNullOrBlank()) {
@@ -3058,6 +3097,7 @@ class PdfReaderViewModel @Inject constructor(
             .invertColors(isCalculatedThemeDark)
             .themeMode(themeMode)
             .showNoteEditorForNewNoteAnnotations(false)
+            .zoomOutBounce(false)
 //            .disableFormEditing()
 //            .disableAnnotationRotation()
 //            .setSelectedAnnotationResizeEnabled(false)
@@ -3066,6 +3106,7 @@ class PdfReaderViewModel @Inject constructor(
             .scrollbarsEnabled(true)
             .defaultToolbarEnabled(false)
             .documentTitleOverlayEnabled(false)
+            .annotationPopupToolbarEnabled(false)
             .stylusOnDetectionEnabled(true)
             .hideUserInterfaceWhenCreatingAnnotations(false)
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
@@ -3425,6 +3466,9 @@ class PdfReaderViewModel @Inject constructor(
                 clickedAnnotation: Annotation?
             ): Boolean {
                 decideTopBarAndBottomBarVisibility(clickedAnnotation)
+                if (clickedAnnotation != null && isAnnotationSelectable(clickedAnnotation)) {
+                    selectAnnotationFromDocument(annotationKey(clickedAnnotation))
+                }
                 return false
             }
         })
@@ -3895,11 +3939,18 @@ class PdfReaderViewModel @Inject constructor(
 
     private fun remove(key: AnnotationKey) {
         val annotation = annotation(key) ?: return
-        val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
-            annotation.page,
-            annotation.key
-        ) ?: return
+        val pdfAnnotation = selectedOrDocumentAnnotation(annotation)
+        if (pdfAnnotation == null) {
+            return
+        }
         remove(annotations = listOf(pdfAnnotation))
+    }
+
+    private fun selectedOrDocumentAnnotation(annotation: PDFAnnotation): Annotation? {
+        val selectedAnnotation = pdfFragment.selectedAnnotations.firstOrNull { it.key == annotation.key }
+        if (selectedAnnotation != null) return selectedAnnotation
+
+        return document.annotation(annotation.page, annotation.key)
     }
 
     private fun remove(annotations: List<Annotation>) {
@@ -3907,6 +3958,17 @@ class PdfReaderViewModel @Inject constructor(
 
         for (annotation in annotations) {
             annotationPreviewManager.delete(annotation, parentKey = viewState.key, libraryId = viewState.library.identifier)
+        }
+
+        if (annotations.isNotEmpty()) {
+            annotations.forEach {
+                document.annotationProvider.removeAnnotationFromPageBlocking(it)
+            }
+            clearSelectedAnnotations()
+            updateState {
+                copy(selectedAnnotationKey = null)
+            }
+            updateAnnotationsList(forceNotShowAnnotationPopup = true)
         }
 
         if(keys.isEmpty()) { return }
@@ -4098,7 +4160,7 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     override fun onMoreOptionsForItemClicked() {
-        annotationEditReaderKey = selectedAnnotation?.readerKey
+        annotationEditReaderKey = viewState.selectedAnnotationKey
         val args = PdfAnnotationMoreArgs(
             selectedAnnotation = selectedAnnotation,
             userId = viewState.userId,

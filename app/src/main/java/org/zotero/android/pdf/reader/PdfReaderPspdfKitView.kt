@@ -74,7 +74,7 @@ private class SingleFingerVerticalOnlyFrameLayout(
     context: Context,
 ) : FrameLayout(context) {
     var lockHorizontalSingleFingerPan: Boolean = false
-    var onDoubleTap: (() -> Unit)? = null
+    var onDoubleTap: (() -> Boolean)? = null
     var onScaleEnd: (() -> Unit)? = null
     var isTextSelectionModeActive: () -> Boolean = { false }
     var onTextSelectionMove: ((Float, Float) -> Unit)? = null
@@ -84,8 +84,7 @@ private class SingleFingerVerticalOnlyFrameLayout(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
-                onDoubleTap?.invoke()
-                return false
+                return onDoubleTap?.invoke() == true
             }
         }
     )
@@ -113,7 +112,9 @@ private class SingleFingerVerticalOnlyFrameLayout(
     )
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        gestureDetector.onTouchEvent(event)
+        if (gestureDetector.onTouchEvent(event)) {
+            return true
+        }
 
         if (event.pointerCount == 1 && isTextSelectionModeActive()) {
             when (event.actionMasked) {

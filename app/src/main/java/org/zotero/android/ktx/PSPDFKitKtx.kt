@@ -7,9 +7,17 @@ import com.pspdfkit.annotations.SquareAnnotation
 import org.json.JSONObject
 import org.zotero.android.database.objects.AnnotationsConfig
 
+private val zoteroAnnotationNameRegex =
+    Regex("Zotero-([23456789ABCDEFGHIJKLMNPQRSTUVWXYZ]{8})")
+
 var Annotation.key: String?
     get() {
-        return this.customData?.opt(AnnotationsConfig.keyKey)?.toString()
+        val customDataKey = this.customData?.opt(AnnotationsConfig.keyKey)?.toString()
+        if (!customDataKey.isNullOrBlank()) {
+            return customDataKey
+        }
+        val name = this.name ?: return null
+        return zoteroAnnotationNameRegex.find(name)?.groupValues?.getOrNull(1)
     }
     set(newValue) {
         if (this.customData == null) {
@@ -25,7 +33,7 @@ var Annotation.key: String?
 
 val Annotation.isZoteroAnnotation: Boolean
     get() {
-        return this.key != null || (this.name ?: "").contains("Zotero")
+        return this.key != null
     }
 
 val Annotation.baseColor: String get() {
