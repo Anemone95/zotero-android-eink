@@ -9,7 +9,15 @@ import org.zotero.android.database.objects.AnnotationsConfig
 
 var Annotation.key: String?
     get() {
-        return this.customData?.opt(AnnotationsConfig.keyKey)?.toString()
+        val customDataKey = this.customData?.opt(AnnotationsConfig.keyKey)?.toString()
+        if (!customDataKey.isNullOrBlank()) {
+            return customDataKey
+        }
+        val name = this.name ?: return null
+        if (name.startsWith("Zotero-") && name.length > "Zotero-".length) {
+            return name.removePrefix("Zotero-")
+        }
+        return null
     }
     set(newValue) {
         if (this.customData == null) {
