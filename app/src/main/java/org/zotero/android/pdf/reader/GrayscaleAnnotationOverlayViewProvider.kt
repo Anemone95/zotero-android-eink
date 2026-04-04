@@ -122,19 +122,20 @@ private class GrayscaleMarkupOverlayView(
             return
         }
         when (style.glyph) {
-            AnnotationGlyph.Marker,
             AnnotationGlyph.Unknown,
             -> return
+
+            AnnotationGlyph.Marker -> drawPatternBorder(
+                canvas = canvas,
+                rect = borderRect,
+                pathEffect = PathDashPathEffect(dotStamp, 7f, 0f, PathDashPathEffect.Style.TRANSLATE),
+            )
 
             AnnotationGlyph.Info -> drawSawtoothBorder(canvas, borderRect)
 
             AnnotationGlyph.Question -> drawSolidBorder(canvas, borderRect)
 
-            AnnotationGlyph.Exclamation -> drawPatternBorder(
-                canvas = canvas,
-                rect = borderRect,
-                pathEffect = PathDashPathEffect(dotStamp, 7f, 0f, PathDashPathEffect.Style.TRANSLATE),
-            )
+            AnnotationGlyph.Exclamation -> drawDoubleBorder(canvas, borderRect)
 
             AnnotationGlyph.Quotes -> drawWavyBorder(canvas, borderRect)
 
@@ -160,6 +161,29 @@ private class GrayscaleMarkupOverlayView(
 
     private fun drawSolidBorder(canvas: Canvas, rect: RectF) {
         canvas.drawRect(rect, highlightOutlinePaint)
+    }
+
+    private fun drawDoubleBorder(canvas: Canvas, rect: RectF) {
+        val outerOffset = 2.5f
+        val outerGap = 6.5f
+        canvas.drawRect(
+            RectF(
+                rect.left - outerOffset,
+                rect.top - outerOffset,
+                rect.right + outerOffset,
+                rect.bottom + outerOffset,
+            ),
+            highlightOutlinePaint,
+        )
+        canvas.drawRect(
+            RectF(
+                rect.left - outerGap,
+                rect.top - outerGap,
+                rect.right + outerGap,
+                rect.bottom + outerGap,
+            ),
+            highlightOutlinePaint,
+        )
     }
 
     private fun drawSawtoothBorder(canvas: Canvas, rect: RectF) {

@@ -142,17 +142,7 @@ private fun DrawScope.drawBadgeBorder(style: AnnotationColorStyle) {
     val radius = size.minDimension * 0.42f
 
     when (style.glyph) {
-        AnnotationGlyph.Marker -> Unit
-        AnnotationGlyph.Question,
-        AnnotationGlyph.Unknown,
-        -> drawCircle(
-            color = inkColor,
-            radius = radius,
-            center = center,
-            style = Stroke(width = strokeWidth),
-        )
-
-        AnnotationGlyph.Exclamation -> drawCircle(
+        AnnotationGlyph.Marker -> drawCircle(
             color = inkColor,
             radius = radius,
             center = center,
@@ -162,6 +152,16 @@ private fun DrawScope.drawBadgeBorder(style: AnnotationColorStyle) {
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(1f, 6f)),
             ),
         )
+        AnnotationGlyph.Question,
+        AnnotationGlyph.Unknown,
+        -> drawCircle(
+            color = inkColor,
+            radius = radius,
+            center = center,
+            style = Stroke(width = strokeWidth),
+        )
+
+        AnnotationGlyph.Exclamation -> drawDoubleCircleBorder(center, radius, strokeWidth)
 
         AnnotationGlyph.Language -> drawCircle(
             color = inkColor,
@@ -196,7 +196,7 @@ private fun DrawScope.drawBadgeBorder(style: AnnotationColorStyle) {
 }
 
 private fun AnnotationColorStyle.showsDecorativeBorder(): Boolean {
-    return glyph != AnnotationGlyph.Marker
+    return true
 }
 
 private fun DrawScope.drawStyledBorder(
@@ -211,20 +211,7 @@ private fun DrawScope.drawStyledBorder(
     val strokeWidth = 2.dp.toPx()
 
     when (style.glyph) {
-        AnnotationGlyph.Marker -> Unit
-        AnnotationGlyph.Question,
-        AnnotationGlyph.Unknown,
-        -> {
-            drawRoundRect(
-                color = inkColor,
-                topLeft = Offset(left, top),
-                size = Size(right - left, bottom - top),
-                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
-                style = Stroke(width = strokeWidth),
-            )
-        }
-
-        AnnotationGlyph.Exclamation -> {
+        AnnotationGlyph.Marker -> {
             drawRoundRect(
                 color = inkColor,
                 topLeft = Offset(left, top),
@@ -237,6 +224,19 @@ private fun DrawScope.drawStyledBorder(
                 ),
             )
         }
+        AnnotationGlyph.Question,
+        AnnotationGlyph.Unknown,
+        -> {
+            drawRoundRect(
+                color = inkColor,
+                topLeft = Offset(left, top),
+                size = Size(right - left, bottom - top),
+                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                style = Stroke(width = strokeWidth),
+            )
+        }
+
+        AnnotationGlyph.Exclamation -> drawDoubleRoundedBorder(left, top, right, bottom, cornerRadius, strokeWidth)
 
         AnnotationGlyph.Language -> {
             drawRoundRect(
@@ -254,6 +254,58 @@ private fun DrawScope.drawStyledBorder(
         AnnotationGlyph.Info -> drawSawtoothBorder(left, top, right, bottom)
         AnnotationGlyph.Quotes -> drawWavyBorder(left, top, right, bottom)
     }
+}
+
+private fun DrawScope.drawDoubleCircleBorder(
+    center: Offset,
+    radius: Float,
+    strokeWidth: Float,
+) {
+    drawCircle(
+        color = inkColor,
+        radius = radius,
+        center = center,
+        style = Stroke(width = strokeWidth),
+    )
+    val inset = 4.dp.toPx()
+    if (radius <= inset) {
+        return
+    }
+    drawCircle(
+        color = inkColor,
+        radius = radius - inset,
+        center = center,
+        style = Stroke(width = strokeWidth),
+    )
+}
+
+private fun DrawScope.drawDoubleRoundedBorder(
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+    cornerRadius: Dp,
+    strokeWidth: Float,
+) {
+    drawRoundRect(
+        color = inkColor,
+        topLeft = Offset(left, top),
+        size = Size(right - left, bottom - top),
+        cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+        style = Stroke(width = strokeWidth),
+    )
+    val inset = 5.dp.toPx()
+    if (right - left <= inset * 2f || bottom - top <= inset * 2f) {
+        return
+    }
+    val innerCorner = (cornerRadius.toPx() - inset / 2f).coerceAtLeast(2.dp.toPx())
+    drawRoundRect(
+        color = inkColor,
+        topLeft = Offset(left + inset, top + inset),
+        size = Size(right - left - inset * 2f, bottom - top - inset * 2f),
+        cornerRadius = CornerRadius(innerCorner, innerCorner),
+        style = Stroke(width = strokeWidth),
+    )
 }
 
 private fun DrawScope.drawSawtoothBorder(
