@@ -82,6 +82,19 @@
     <string name="settings_e_ink_mode_colorful">Colorful</string>
     <string name="settings_e_ink_mode_grayscale">Grayscale</string>
     <string name="settings_e_ink_mode_off">Off</string>
+    <string name="settings_translate_title">Translate</string>
+    <string name="settings_translate_service">TranslateServices</string>
+    <string name="settings_translate_service_deepl_free_plan">DeepL (FreePlan)</string>
+    <string name="settings_translate_service_gemini">Gemini</string>
+    <string name="settings_translate_secret">Secret</string>
+    <string name="settings_translate_secret_placeholder">Enter secret</string>
+    <string name="settings_translate_prompt">Prompt</string>
+    <string name="settings_translate_prompt_placeholder">Translate the following text and return only the translation.\n\n{text}</string>
+    <string name="pdf_translate">Translate</string>
+    <string name="pdf_translate_loading">Translating…</string>
+    <string name="pdf_translate_missing_secret">Missing DeepL secret.</string>
+    <string name="pdf_translate_not_implemented">The selected translate service is not implemented yet.</string>
+    <string name="pdf_translate_failed">Translation failed. Please try again.</string>
 
     <string name="items_generating_cit">Generating Citation</string>
 

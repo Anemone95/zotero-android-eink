@@ -10,6 +10,7 @@ import org.zotero.android.pdf.data.LandscapeOrientation
 import org.zotero.android.pdf.data.PDFSettings
 import org.zotero.android.pdf.data.SavedCropConfiguration
 import org.zotero.android.screens.settings.EInkMode
+import org.zotero.android.screens.settings.translate.TranslateService
 import org.zotero.android.screens.allitems.data.ItemsSortType
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMethod
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMode
@@ -61,6 +62,10 @@ open class Defaults @Inject constructor(
     private val exportLocaleId = "exportLocaleId"
     private val quickCopyAsHtml = "quickCopyAsHtml"
     private val htmlEpubSettings = "htmlEpubSettings"
+    private val translateService = "translateService"
+    private val translateDeepLSecret = "translateDeepLSecret"
+    private val translateGeminiSecret = "translateGeminiSecret"
+    private val translateGeminiPrompt = "translateGeminiPrompt"
 
     private val exportOutputMode = "exportOutputMode"
     private val exportOutputMethod = "exportOutputMethod"
@@ -639,6 +644,44 @@ open class Defaults @Inject constructor(
         sharedPreferences.edit { putString(this@Defaults.htmlEpubSettings, json) }
     }
 
+    fun setTranslateService(newValue: TranslateService) {
+        sharedPreferences.edit { putString(translateService, newValue.name) }
+    }
+
+    fun getTranslateService(): TranslateService {
+        return sharedPreferences.getString(translateService, null)
+            ?.let { storedValue -> TranslateService.entries.firstOrNull { it.name == storedValue } }
+            ?: TranslateService.default()
+    }
+
+    fun setTranslateDeepLSecret(newValue: String) {
+        sharedPreferences.edit { putString(translateDeepLSecret, newValue) }
+    }
+
+    fun getTranslateDeepLSecret(): String {
+        return sharedPreferences.getString(translateDeepLSecret, "") ?: ""
+    }
+
+    fun setTranslateGeminiSecret(newValue: String) {
+        sharedPreferences.edit { putString(translateGeminiSecret, newValue) }
+    }
+
+    fun getTranslateGeminiSecret(): String {
+        return sharedPreferences.getString(translateGeminiSecret, "") ?: ""
+    }
+
+    fun setTranslateGeminiPrompt(newValue: String) {
+        sharedPreferences.edit { putString(translateGeminiPrompt, newValue) }
+    }
+
+    fun getTranslateGeminiPrompt(): String {
+        return sharedPreferences.getString(translateGeminiPrompt, defaultTranslatePrompt()) ?: defaultTranslatePrompt()
+    }
+
+    private fun defaultTranslatePrompt(): String {
+        return "Translate the following text and return only the translation.\n\n{text}"
+    }
+
     fun reset() {
         setUsername("")
         setDisplayName("")
@@ -670,6 +713,10 @@ open class Defaults @Inject constructor(
         setQuickCopyStyleId("http://www.zotero.org/styles/chicago-notes-bibliography")
         setExportOutputMethod(CitBibExportOutputMethod.copy)
         setExportOutputMode(CitBibExportOutputMode.bibliography)
+        setTranslateService(TranslateService.default())
+        setTranslateDeepLSecret("")
+        setTranslateGeminiSecret("")
+        setTranslateGeminiPrompt(defaultTranslatePrompt())
     }
 
 }

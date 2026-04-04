@@ -50,6 +50,7 @@ import com.pspdfkit.configuration.page.PageFitMode
 import com.pspdfkit.configuration.page.PageScrollMode
 import com.pspdfkit.configuration.theming.ThemeMode
 import com.pspdfkit.datastructures.Range
+import com.pspdfkit.datastructures.TextSelection
 import com.pspdfkit.document.OutlineElement
 import com.pspdfkit.document.PdfDocument
 import com.pspdfkit.document.PdfDocumentLoader
@@ -96,6 +97,7 @@ import org.zotero.android.api.pojo.sync.KeyBaseKeyPair
 import org.zotero.android.architecture.BaseViewModel2
 import org.zotero.android.architecture.Defaults
 import org.zotero.android.architecture.EventBusConstants
+import org.zotero.android.architecture.Result
 import org.zotero.android.architecture.ScreenArguments
 import org.zotero.android.architecture.ViewEffect
 import org.zotero.android.architecture.ViewState
@@ -182,6 +184,7 @@ import org.zotero.android.pdf.settings.data.PdfSettingsArgs
 import org.zotero.android.pdf.settings.data.PdfSettingsChangeResult
 import org.zotero.android.screens.citation.singlecitation.data.SingleCitationArgs
 import org.zotero.android.screens.settings.EInkMode
+import org.zotero.android.screens.settings.translate.TranslateService
 import org.zotero.android.screens.tagpicker.data.TagPickerArgs
 import org.zotero.android.screens.tagpicker.data.TagPickerResult
 import org.zotero.android.sync.AnnotationBoundingBoxCalculator
@@ -195,6 +198,7 @@ import org.zotero.android.sync.LibraryIdentifier
 import org.zotero.android.sync.SchemaController
 import org.zotero.android.sync.SessionDataEventStream
 import org.zotero.android.sync.Tag
+import org.zotero.android.translate.DeepLTranslateTextUseCase
 import org.zotero.android.uicomponents.Strings
 import timber.log.Timber
 import java.io.File
@@ -228,6 +232,7 @@ class PdfReaderViewModel @Inject constructor(
     private val dateParser: DateParser,
     private val navigationParamsMarshaller: NavigationParamsMarshaller,
     private val dispatcher: CoroutineDispatcher,
+    private val deepLTranslateTextUseCase: DeepLTranslateTextUseCase,
     private val progressHandler: SyncProgressHandler,
     private val fileStore: FileStore,
     private val stateHandle: SavedStateHandle,
@@ -278,6 +283,7 @@ class PdfReaderViewModel @Inject constructor(
     private var activeTextSelectionController: TextSelectionController? = null
     private var textSelectionAnchorRange: Range? = null
     private var lastAppliedTextSelectionRange: Range? = null
+    private var translatedTextSelection: TextSelection? = null
     private var cropPageJob: Job? = null
     private var savedCropConfiguration: SavedCropConfiguration? = null
     private var lastQualifiedPageIndex: Int? = null
@@ -671,7 +677,26 @@ class PdfReaderViewModel @Inject constructor(
                 R.id.pspdf__text_selection_toolbar_item_highlight,
                 Strings.pdf_highlight
             )
+            val shareItemIndex =
+                sourceItems.indexOfFirst { it.id == R.id.pspdf__text_selection_toolbar_item_share }
+            val translateItem = PopupToolbarMenuItem(
+                org.zotero.android.R.id.pdf_reader_translate_selected_text,
+                Strings.pdf_translate
+            )
+            if (shareItemIndex >= 0) {
+                sourceItems.add(shareItemIndex + 1, translateItem)
+            } else {
+                sourceItems.add(translateItem)
+            }
             toolbar.menuItems = sourceItems
+            toolbar.setOnPopupToolbarItemClickedListener { item ->
+                if (item.id == org.zotero.android.R.id.pdf_reader_translate_selected_text) {
+                    onTranslateSelectedTextTapped()
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
 
@@ -3755,11 +3780,13 @@ class PdfReaderViewModel @Inject constructor(
             }
         }
 
-        if (!toRemove.isEmpty() || !toAdd.isEmpty()) {
+        val annotationsToAttach = finalAnnotations.filterNot { it.isAttached }
+
+        if (toRemove.isNotEmpty() || annotationsToAttach.isNotEmpty()) {
             toRemove.forEach {
                 this.document.annotationProvider.removeAnnotationFromPageBlocking(it)
             }
-            finalAnnotations.forEach {
+            annotationsToAttach.forEach {
                 this.document.annotationProvider.addAnnotationToPageBlocking(it)
             }
         }
@@ -4507,6 +4534,205 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
+    fun dismissTranslationPopup() {
+        hideTranslationPopup(exitTextSelectionMode = true)
+    }
+
+    fun addTranslatedSelectionAsAnnotation() {
+        val popup = viewState.translationPopup ?: return
+        val selection = translatedTextSelection ?: return
+        if (popup.isLoading || popup.errorMessage != null || popup.translation.isBlank()) {
+            return
+        }
+        val selectionRects = selection.textBlocks.map { RectF(it) }
+        if (selectionRects.isEmpty()) {
+            return
+        }
+
+        val annotation = HighlightAnnotation(
+            selection.pageIndex,
+            selectionRects
+        ).apply {
+            boundingBox = AnnotationBoundingBoxCalculator.boundingBox(selectionRects)
+            contents = popup.translation
+            val (drawColor, alpha, blendMode) = AnnotationColorGenerator.color(
+                colorHex = translatedHighlightHex,
+                type = org.zotero.android.database.objects.AnnotationType.highlight,
+                isDarkMode = viewState.isDark,
+            )
+            color = drawColor
+            this.alpha = alpha
+            this.blendMode = blendMode ?: BlendMode.NORMAL
+        }
+
+        add(listOf(annotation))
+        hideTranslationPopup(exitTextSelectionMode = true)
+    }
+
+    private fun onTranslateSelectedTextTapped() {
+        val selection = activeTextSelectionController?.getTextSelection()
+            ?: pdfFragment.getTextSelection()
+            ?: return
+        val selectedText = selection.text ?: return
+        translatedTextSelection = selection
+        val popupAnchor = selectionPopupAnchor(selection)
+        hidePspdfkitToolbars()
+        updateState {
+            copy(
+                translationPopup = PdfReaderTranslationPopupState(
+                    anchorX = popupAnchor.first,
+                    anchorY = popupAnchor.second,
+                    translation = "",
+                    isLoading = true,
+                )
+            )
+        }
+
+        viewModelScope.launch {
+            when (defaults.getTranslateService()) {
+                TranslateService.DeepLFreePlan -> {
+                    when (val result = deepLTranslateTextUseCase.translate(selectedText)) {
+                        is Result.Success -> {
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = result.value,
+                                        isLoading = false,
+                                        errorMessage = null,
+                                    )
+                                )
+                            }
+                        }
+
+                        is Result.Failure -> {
+                            val message = if (defaults.getTranslateDeepLSecret().isBlank()) {
+                                context.getString(Strings.pdf_translate_missing_secret)
+                            } else {
+                                context.getString(Strings.pdf_translate_failed)
+                            }
+                            Timber.e(result.exception, "PdfReaderViewModel: DeepL translation failed")
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = "",
+                                        isLoading = false,
+                                        errorMessage = message,
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                TranslateService.Gemini -> {
+                    updateState {
+                        copy(
+                            translationPopup = viewState.translationPopup?.copy(
+                                translation = "",
+                                isLoading = false,
+                                errorMessage = context.getString(Strings.pdf_translate_not_implemented),
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun selectionPopupAnchor(selection: TextSelection): Pair<Int, Int> {
+        if (!this::pdfFragment.isInitialized) {
+            return popupToolbarAnchor()
+        }
+        val pdfView = pdfFragment.view ?: return popupToolbarAnchor()
+        val rootView = pdfUiFragment.view?.rootView ?: return popupToolbarAnchor()
+        val selectionBounds = selectionBounds(selection.textBlocks) ?: return popupToolbarAnchor()
+        val visibleRect = RectF()
+        val hasVisibleRect = pdfFragment.getVisiblePdfRect(visibleRect, selection.pageIndex)
+        val visibleBounds = visibleRect.takeIf { hasVisibleRect }?.let(::pdfRectBounds) ?: return popupToolbarAnchor()
+        if (visibleBounds.width <= 0f || visibleBounds.height <= 0f || pdfView.width <= 0 || pdfView.height <= 0) {
+            return popupToolbarAnchor()
+        }
+
+        val rootLocation = IntArray(2)
+        val pdfLocation = IntArray(2)
+        rootView.getLocationInWindow(rootLocation)
+        pdfView.getLocationInWindow(pdfLocation)
+
+        val anchorXFraction =
+            ((selectionBounds.centerX - visibleBounds.left) / visibleBounds.width).coerceIn(0f, 1f)
+        val anchorYFraction =
+            ((visibleBounds.top - selectionBounds.top) / visibleBounds.height).coerceIn(0f, 1f)
+
+        val anchorX =
+            (pdfLocation[0] - rootLocation[0] + (pdfView.width * anchorXFraction)).roundToInt()
+        val anchorY =
+            (pdfLocation[1] - rootLocation[1] + (pdfView.height * anchorYFraction)).roundToInt()
+        return anchorX to anchorY
+    }
+
+    private fun hideTranslationPopup(exitTextSelectionMode: Boolean) {
+        translatedTextSelection = null
+        updateState {
+            copy(translationPopup = null)
+        }
+        if (exitTextSelectionMode && this::pdfFragment.isInitialized && pdfFragment.isInSpecialMode) {
+            pdfFragment.exitCurrentlyActiveMode()
+        }
+    }
+
+    private fun popupToolbarAnchor(): Pair<Int, Int> {
+        val rootView = pdfUiFragment.view?.rootView ?: return 220 to 220
+        val popupToolbarView = rootView.findViewById<View>(R.id.pspdf__popup_toolbar) ?: return 220 to 220
+        val rootLocation = IntArray(2)
+        val toolbarLocation = IntArray(2)
+        rootView.getLocationInWindow(rootLocation)
+        popupToolbarView.getLocationInWindow(toolbarLocation)
+        val anchorX = toolbarLocation[0] - rootLocation[0] + (popupToolbarView.width / 2)
+        val anchorY = toolbarLocation[1] - rootLocation[1]
+        return anchorX to anchorY
+    }
+
+    private fun selectionBounds(textBlocks: List<RectF>): PdfRectBounds? {
+        if (textBlocks.isEmpty()) {
+            return null
+        }
+        var left = Float.POSITIVE_INFINITY
+        var right = Float.NEGATIVE_INFINITY
+        var top = Float.NEGATIVE_INFINITY
+        var bottom = Float.POSITIVE_INFINITY
+        textBlocks.forEach { rect ->
+            left = minOf(left, rect.left, rect.right)
+            right = maxOf(right, rect.left, rect.right)
+            top = maxOf(top, rect.top, rect.bottom)
+            bottom = minOf(bottom, rect.top, rect.bottom)
+        }
+        if (!left.isFinite() || !right.isFinite() || !top.isFinite() || !bottom.isFinite() || right <= left || top <= bottom) {
+            return null
+        }
+        return PdfRectBounds(
+            left = left,
+            right = right,
+            top = top,
+            bottom = bottom,
+        )
+    }
+
+    private fun pdfRectBounds(rect: RectF): PdfRectBounds? {
+        val left = minOf(rect.left, rect.right)
+        val right = maxOf(rect.left, rect.right)
+        val top = maxOf(rect.top, rect.bottom)
+        val bottom = minOf(rect.top, rect.bottom)
+        if (right <= left || top <= bottom) {
+            return null
+        }
+        return PdfRectBounds(
+            left = left,
+            right = right,
+            top = top,
+            bottom = bottom,
+        )
+    }
+
     override fun onShareButtonTapped() {
         updateState {
             copy(
@@ -4625,6 +4851,7 @@ data class PdfReaderViewState(
     val isGeneratingBibliography: Boolean = false,
     val isExportingAnnotatedPdf: Boolean = false,
     val isFixedCropModeEnabled: Boolean = false,
+    val translationPopup: PdfReaderTranslationPopupState? = null,
 ) : ViewState {
 
     fun isAnnotationSelected(annotationKey: String): Boolean {
@@ -4639,6 +4866,25 @@ data class PdfReaderViewState(
     fun isThumbnailSelected(row: PdfReaderThumbnailRow): Boolean {
         return this.selectedThumbnail == row
     }
+}
+
+data class PdfReaderTranslationPopupState(
+    val anchorX: Int,
+    val anchorY: Int,
+    val translation: String,
+    val isLoading: Boolean,
+    val errorMessage: String? = null,
+)
+
+private data class PdfRectBounds(
+    val left: Float,
+    val right: Float,
+    val top: Float,
+    val bottom: Float,
+) {
+    val width: Float get() = right - left
+    val height: Float get() = top - bottom
+    val centerX: Float get() = (left + right) / 2f
 }
 
 sealed class PdfReaderViewEffect : ViewEffect {
@@ -4660,6 +4906,8 @@ sealed class PdfReaderViewEffect : ViewEffect {
     object ShowSingleCitationScreen: PdfReaderViewEffect()
 
 }
+
+private const val translatedHighlightHex = "#9E9E9E"
 
 data class AnnotationKey(
     val key: String,

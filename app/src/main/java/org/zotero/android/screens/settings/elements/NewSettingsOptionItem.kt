@@ -22,15 +22,18 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.uicomponents.Drawables
 
+internal interface SettingsOption {
+    val titleResId: Int
+}
+
 @Composable
-internal fun NewSettingsOptionItem(
+internal fun <T : SettingsOption> NewSettingsOptionItem(
     title: String,
-    options: List<EInkMode>,
-    selectedOption: EInkMode,
-    onOptionSelected: (EInkMode) -> Unit,
+    options: List<T>,
+    selectedOption: T,
+    onOptionSelected: (T) -> Unit,
 ) {
     Column(
         modifier = Modifier
