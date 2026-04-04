@@ -199,6 +199,7 @@ import org.zotero.android.sync.SchemaController
 import org.zotero.android.sync.SessionDataEventStream
 import org.zotero.android.sync.Tag
 import org.zotero.android.translate.DeepLTranslateTextUseCase
+import org.zotero.android.translate.GeminiTranslateTextUseCase
 import org.zotero.android.uicomponents.Strings
 import timber.log.Timber
 import java.io.File
@@ -233,6 +234,7 @@ class PdfReaderViewModel @Inject constructor(
     private val navigationParamsMarshaller: NavigationParamsMarshaller,
     private val dispatcher: CoroutineDispatcher,
     private val deepLTranslateTextUseCase: DeepLTranslateTextUseCase,
+    private val geminiTranslateTextUseCase: GeminiTranslateTextUseCase,
     private val progressHandler: SyncProgressHandler,
     private val fileStore: FileStore,
     private val stateHandle: SavedStateHandle,
@@ -4625,14 +4627,36 @@ class PdfReaderViewModel @Inject constructor(
                 }
 
                 TranslateService.Gemini -> {
-                    updateState {
-                        copy(
-                            translationPopup = viewState.translationPopup?.copy(
-                                translation = "",
-                                isLoading = false,
-                                errorMessage = context.getString(Strings.pdf_translate_not_implemented),
-                            )
-                        )
+                    when (val result = geminiTranslateTextUseCase.translate(selectedText)) {
+                        is Result.Success -> {
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = result.value,
+                                        isLoading = false,
+                                        errorMessage = null,
+                                    )
+                                )
+                            }
+                        }
+
+                        is Result.Failure -> {
+                            val message = if (defaults.getTranslateGeminiSecret().isBlank()) {
+                                context.getString(Strings.pdf_translate_missing_secret)
+                            } else {
+                                context.getString(Strings.pdf_translate_failed)
+                            }
+                            Timber.e(result.exception, "PdfReaderViewModel: Gemini translation failed")
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = "",
+                                        isLoading = false,
+                                        errorMessage = message,
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }

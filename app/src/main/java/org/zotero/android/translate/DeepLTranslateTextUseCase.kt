@@ -24,10 +24,7 @@ class DeepLTranslateTextUseCase @Inject constructor(
         if (secret.isEmpty()) {
             return@withContext Failure(Exception("Missing DeepL secret"))
         }
-        val normalizedText = text
-            .replace(newlineRegex, " ")
-            .replace(whitespaceRegex, " ")
-            .trim()
+        val normalizedText = TranslationTextFormatter.normalizeInput(text)
         if (normalizedText.isEmpty()) {
             return@withContext Failure(Exception("DeepL text is empty after normalization"))
         }
@@ -87,8 +84,6 @@ class DeepLTranslateTextUseCase @Inject constructor(
 
     private companion object {
         const val DEEPL_FREE_TRANSLATE_URL = "https://api-free.deepl.com/v2/translate"
-        val newlineRegex = Regex("[\\r\\n]+")
-        val whitespaceRegex = Regex("\\s{2,}")
 
         val latinAmericanSpanishRegions = setOf(
             "AR", "BO", "CL", "CO", "CR", "CU", "DO", "EC", "GT", "HN", "MX",

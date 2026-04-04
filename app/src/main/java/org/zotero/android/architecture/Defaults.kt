@@ -675,11 +675,13 @@ open class Defaults @Inject constructor(
     }
 
     fun getTranslateGeminiPrompt(): String {
-        return sharedPreferences.getString(translateGeminiPrompt, defaultTranslatePrompt()) ?: defaultTranslatePrompt()
+        val storedPrompt = sharedPreferences.getString(translateGeminiPrompt, defaultTranslatePrompt())
+            ?: return defaultTranslatePrompt()
+        return storedPrompt.ifBlank { defaultTranslatePrompt() }
     }
 
     private fun defaultTranslatePrompt(): String {
-        return "Translate the following text and return only the translation.\n\n{text}"
+        return "你有PL相关的专业知识，首先，翻译这个句子为中文，其次在换行拆解句子的语法组成，最后换行详细解释生僻词（超过8000常用词的词），并用词根记忆法助记。你的输出是原文:xxx\\n译文:yyy\\n句子结构: zzz\\n生僻词:aaa, 句子是： {text}"
     }
 
     fun reset() {
