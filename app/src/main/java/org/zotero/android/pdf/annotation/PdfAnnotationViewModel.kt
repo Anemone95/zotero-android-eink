@@ -26,7 +26,6 @@ import org.zotero.android.pdf.data.PdfReaderCurrentThemeEventStream
 import org.zotero.android.pdf.data.PdfReaderThemeDecider
 import org.zotero.android.screens.tagpicker.data.TagPickerArgs
 import org.zotero.android.screens.tagpicker.data.TagPickerResult
-import timber.log.Timber
 import org.zotero.android.sync.Tag
 import javax.inject.Inject
 
@@ -135,13 +134,6 @@ internal class PdfAnnotationViewModel @Inject constructor(
         updateState {
             copy(color = color)
         }
-        Timber.i(
-            "PdfAnnotationViewModel: onColorSelected annotationKey=%s readerKey=%s isZotero=%s color=%s",
-            viewState.annotation?.key,
-            viewState.annotation?.readerKey,
-            viewState.annotation?.isZoteroAnnotation,
-            color,
-        )
         EventBus.getDefault().post(
             PdfAnnotationColorResult(
                 annotationKey = viewState.annotation!!.key,
@@ -164,12 +156,6 @@ internal class PdfAnnotationViewModel @Inject constructor(
 
     fun onDeleteAnnotation() {
         isDeletingAnnotation = true
-        Timber.i(
-            "PdfAnnotationViewModel: onDeleteAnnotation annotationKey=%s readerKey=%s isZotero=%s",
-            viewState.annotation?.key,
-            viewState.annotation?.readerKey,
-            viewState.annotation?.isZoteroAnnotation,
-        )
         EventBus.getDefault().post(
             PdfAnnotationDeleteResult(
                 key = viewState.annotation!!.readerKey,

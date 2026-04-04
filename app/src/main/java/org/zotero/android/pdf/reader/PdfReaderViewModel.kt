@@ -369,24 +369,11 @@ class PdfReaderViewModel @Inject constructor(
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onEvent(result: PdfAnnotationDeleteResult) {
         val key = result.key
-        Timber.i(
-            "PdfReaderViewModel: onEvent PdfAnnotationDeleteResult key=%s selectedAnnotationKey=%s selectedAnnotation=%s",
-            key,
-            viewState.selectedAnnotationKey,
-            selectedAnnotation?.key,
-        )
         remove(key)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onEvent(result: PdfAnnotationColorResult) {
-        Timber.i(
-            "PdfReaderViewModel: onEvent PdfAnnotationColorResult annotationKey=%s color=%s selectedAnnotationKey=%s selectedAnnotation=%s",
-            result.annotationKey,
-            result.color,
-            viewState.selectedAnnotationKey,
-            selectedAnnotation?.key,
-        )
         setColor(key = result.annotationKey, color = result.color)
     }
 
@@ -683,19 +670,12 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun setColor(key: String, color: String) {
-        Timber.i("PdfReaderViewModel: setColor key=%s color=%s", key, color)
         setC(key = key, color = color)
     }
 
     private fun setC(color: String, key:String) {
         val annotationKey = AnnotationKey(key = key, type = Kind.database)
         val annotation = annotation(annotationKey)
-        Timber.i(
-            "PdfReaderViewModel: setC lookup annotationKey=%s found=%s selectedAnnotationKey=%s",
-            annotationKey,
-            annotation != null,
-            viewState.selectedAnnotationKey,
-        )
         if (annotation == null) {
             return
         }
@@ -1915,26 +1895,7 @@ class PdfReaderViewModel @Inject constructor(
             return
         }
         val key = annotation.key
-        if (key == null) {
-            Timber.w(
-                "PdfReaderViewModel: change skipped because annotation key is null type=%s changes=%s name=%s uuid=%s customData=%s",
-                annotation.type,
-                changes,
-                annotation.name,
-                annotation.uuid,
-                annotation.customData,
-            )
-            return
-        }
-        Timber.i(
-            "PdfReaderViewModel: change key=%s type=%s changes=%s name=%s uuid=%s customData=%s",
-            key,
-            annotation.type,
-            changes,
-            annotation.name,
-            annotation.uuid,
-            annotation.customData,
-        )
+        if (key == null) return
 
         annotationPreviewManager.store(
             rawDocument = rawDocument,
@@ -2093,18 +2054,6 @@ class PdfReaderViewModel @Inject constructor(
         pdfReaderNotification: PdfReaderNotification,
         ignoreDebouncer: Boolean = false,
     ) {
-        Timber.i(
-            "PdfReaderViewModel: processAnnotationObserving notification=%s type=%s key=%s name=%s uuid=%s customData=%s changes=%s ignoreDebouncer=%s",
-            pdfReaderNotification,
-            annotation.type,
-            annotation.key,
-            annotation.name,
-            annotation.uuid,
-            annotation.customData,
-            changes,
-            ignoreDebouncer,
-        )
-
         when (pdfReaderNotification) {
             PdfReaderNotification.PSPDFAnnotationChanged -> {
                 when (annotation) {
@@ -3928,19 +3877,8 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun remove(key: AnnotationKey) {
-        Timber.i(
-            "PdfReaderViewModel: remove by key key=%s selectedAnnotationKey=%s",
-            key,
-            viewState.selectedAnnotationKey,
-        )
         val annotation = annotation(key) ?: return
         val pdfAnnotation = selectedOrDocumentAnnotation(annotation)
-        Timber.i(
-            "PdfReaderViewModel: remove lookup annotation=%s page=%s documentAnnotationFound=%s",
-            annotation.key,
-            annotation.page,
-            pdfAnnotation != null,
-        )
         if (pdfAnnotation == null) {
             return
         }
@@ -3949,34 +3887,13 @@ class PdfReaderViewModel @Inject constructor(
 
     private fun selectedOrDocumentAnnotation(annotation: PDFAnnotation): Annotation? {
         val selectedAnnotation = pdfFragment.selectedAnnotations.firstOrNull { it.key == annotation.key }
-        if (selectedAnnotation != null) {
-            Timber.i(
-                "PdfReaderViewModel: selectedOrDocumentAnnotation resolved from selectedAnnotations key=%s page=%s uuid=%s",
-                annotation.key,
-                selectedAnnotation.pageIndex,
-                selectedAnnotation.uuid,
-            )
-            return selectedAnnotation
-        }
+        if (selectedAnnotation != null) return selectedAnnotation
 
-        val documentAnnotation = document.annotation(annotation.page, annotation.key)
-        Timber.i(
-            "PdfReaderViewModel: selectedOrDocumentAnnotation resolved from document key=%s page=%s found=%s",
-            annotation.key,
-            annotation.page,
-            documentAnnotation != null,
-        )
-        return documentAnnotation
+        return document.annotation(annotation.page, annotation.key)
     }
 
     private fun remove(annotations: List<Annotation>) {
         val keys = annotations.mapNotNull { it.key }
-        Timber.i(
-            "PdfReaderViewModel: remove annotations count=%s keys=%s uuids=%s",
-            annotations.size,
-            keys,
-            annotations.map { it.uuid },
-        )
 
         for (annotation in annotations) {
             annotationPreviewManager.delete(annotation, parentKey = viewState.key, libraryId = viewState.library.identifier)
