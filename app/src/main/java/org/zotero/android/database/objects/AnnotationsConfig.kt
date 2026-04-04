@@ -34,9 +34,11 @@ object AnnotationsConfig {
         AnnotationType.FREETEXT,
     )
     const val keyKey = "Zotero:Key"
+    const val baseColorKey = "Zotero:BaseColor"
     val noteAnnotationSize = Pair(22F, 22F)
     const val imageAnnotationLineWidth = 2F
     val colorVariationMap: Map<Int, String> = createColorVariationMap()
+    val colorVariationRgbMap: Map<Int, String> = createColorVariationRgbMap()
 
     private fun createColorVariationMap(): Map<Int, String> {
         val map = mutableMapOf<Int, String>()
@@ -52,6 +54,14 @@ object AnnotationsConfig {
                     map[variation] = hexBaseColor
                 }
             }
+        }
+        return map
+    }
+
+    private fun createColorVariationRgbMap(): Map<Int, String> {
+        val map = mutableMapOf<Int, String>()
+        for ((variation, baseColor) in colorVariationMap) {
+            map.putIfAbsent(variation and 0xFFFFFF, baseColor)
         }
         return map
     }

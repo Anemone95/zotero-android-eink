@@ -245,6 +245,7 @@ class PdfReaderViewModel @Inject constructor(
     private var onAnnotationUpdatedListener: AnnotationProvider.OnAnnotationUpdatedListener? = null
     private lateinit var document: PdfDocument
     private lateinit var rawDocument: PdfDocument
+    private lateinit var grayscaleAnnotationOverlayViewProvider: GrayscaleAnnotationOverlayViewProvider
     var comments = mutableMapOf<String, String>()
     private val onAnnotationSearchStateFlow = MutableStateFlow("")
     private val onAnnotationChangedDebouncerFlow = MutableStateFlow<Triple<Int, List<String>, FreeTextAnnotation>?>(null)
@@ -480,6 +481,9 @@ class PdfReaderViewModel @Inject constructor(
             this@PdfReaderViewModel.backgroundColor = backgroundColor
 
             searchResultHighlighter = SearchResultHighlighter(context)
+            grayscaleAnnotationOverlayViewProvider = GrayscaleAnnotationOverlayViewProvider(
+                isEnabled = { defaults.getEInkMode() == EInkMode.Grayscale }
+            )
 
             if (this@PdfReaderViewModel::pdfUiFragment.isInitialized) {
                 replaceFragment()
@@ -515,6 +519,8 @@ class PdfReaderViewModel @Inject constructor(
                 override fun onStart(owner: LifecycleOwner) {
                     this@PdfReaderViewModel.pdfFragment = pdfUiFragment.pdfFragment!!
                     this@PdfReaderViewModel.pdfFragment.addDrawableProvider(searchResultHighlighter)
+                    this@PdfReaderViewModel.pdfFragment.addOverlayViewProvider(grayscaleAnnotationOverlayViewProvider)
+                    updateGrayscaleAnnotationOverlayMode()
                     addDocumentListenerOnInit()
                     addOnAnnotationCreationModeChangeListener()
                     setOnPreparePopupToolbarListener()
@@ -688,6 +694,27 @@ class PdfReaderViewModel @Inject constructor(
         update(annotation = annotation, color = (color to viewState.isDark), document = this.document)
     }
 
+    private fun currentBaseColorFor(annotation: Annotation): String? {
+        return when (annotation.type) {
+            AnnotationType.HIGHLIGHT -> toolColors[AnnotationTool.HIGHLIGHT] ?: defaults.getHighlightColorHex()
+            AnnotationType.UNDERLINE -> toolColors[AnnotationTool.UNDERLINE] ?: defaults.getUnderlineColorHex()
+            AnnotationType.NOTE -> toolColors[AnnotationTool.NOTE] ?: defaults.getNoteColorHex()
+            AnnotationType.SQUARE -> toolColors[AnnotationTool.SQUARE] ?: defaults.getSquareColorHex()
+            AnnotationType.INK -> toolColors[AnnotationTool.INK] ?: defaults.getInkColorHex()
+            AnnotationType.FREETEXT -> toolColors[AnnotationTool.FREETEXT] ?: defaults.getTextColorHex()
+            else -> null
+        }
+    }
+
+    private fun setBaseColorMetadata(annotation: Annotation, baseColor: String?) {
+        if (baseColor == null) {
+            return
+        }
+        val customData = annotation.customData ?: JSONObject()
+        customData.put(AnnotationsConfig.baseColorKey, baseColor)
+        annotation.customData = customData
+    }
+
     private fun setF(fontSize: Float, key: String) {
         val annotation = annotation(AnnotationKey(key = key, type = Kind.database)) ?: return
         update(annotation = annotation, fontSize = fontSize, document = this.document)
@@ -718,6 +745,7 @@ class PdfReaderViewModel @Inject constructor(
                 applySavedCropConfiguration(pdfUiFragment.pageIndex)
             }
         }
+        refreshGrayscaleAnnotationOverlays()
     }
 
     override fun cropCurrentPage() {
@@ -1883,7 +1911,9 @@ class PdfReaderViewModel @Inject constructor(
                     return
                 }
 
+                setBaseColorMetadata(annotation, currentBaseColorFor(annotation))
                 processAnnotationObserving(annotation, emptyList(), PdfReaderNotification.PSPDFAnnotationsAdded)
+                refreshGrayscaleAnnotationOverlays(annotation.pageIndex)
             }
 
             override fun onAnnotationUpdated(annotation: Annotation) {
@@ -1893,10 +1923,12 @@ class PdfReaderViewModel @Inject constructor(
                     pdfReaderNotification = PdfReaderNotification.PSPDFAnnotationChanged
                 )
                 lastSelectedAnnotation = annotation
+                refreshGrayscaleAnnotationOverlays(annotation.pageIndex)
             }
 
             override fun onAnnotationRemoved(annotation: Annotation) {
                 processAnnotationObserving(annotation, emptyList(), PdfReaderNotification.PSPDFAnnotationsRemoved)
+                refreshGrayscaleAnnotationOverlays(annotation.pageIndex)
             }
 
             override fun onAnnotationZOrderChanged(
@@ -2821,6 +2853,7 @@ class PdfReaderViewModel @Inject constructor(
                 type = annotation.type,
                 isDarkMode = isDark
             )
+            setBaseColorMetadata(pdfAnnotation, color)
             pdfAnnotation.color = _color
             pdfAnnotation.alpha = alpha
             if (blendMode != null) {
@@ -2868,6 +2901,7 @@ class PdfReaderViewModel @Inject constructor(
                 type = annotation.type,
                 isDarkMode = isDarkMode
             )
+            setBaseColorMetadata(pdfAnnotation, hexColor)
             pdfAnnotation.color = color
             pdfAnnotation.alpha = alpha
             if (blendMode != null) {
@@ -3088,8 +3122,7 @@ class PdfReaderViewModel @Inject constructor(
             true -> ThemeMode.NIGHT
             false -> ThemeMode.DEFAULT
         }
-
-        return PdfActivityConfiguration.Builder(context)
+        val builder = PdfActivityConfiguration.Builder(context)
             .scrollDirection(scrollDirection)
             .scrollMode(scrollMode)
             .fitMode(fitMode)
@@ -3110,7 +3143,8 @@ class PdfReaderViewModel @Inject constructor(
             .stylusOnDetectionEnabled(true)
             .hideUserInterfaceWhenCreatingAnnotations(false)
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
-            .build()
+
+        return builder.build()
     }
 
     private fun shouldStabilizeContinuousCropScale(): Boolean {
@@ -3415,6 +3449,8 @@ class PdfReaderViewModel @Inject constructor(
             override fun onStart(owner: LifecycleOwner) {
                 this@PdfReaderViewModel.pdfFragment = pdfUiFragment.pdfFragment!!
                 this@PdfReaderViewModel.pdfFragment.addDrawableProvider(searchResultHighlighter)
+                this@PdfReaderViewModel.pdfFragment.addOverlayViewProvider(grayscaleAnnotationOverlayViewProvider)
+                updateGrayscaleAnnotationOverlayMode()
                 addDocumentListener2()
                 addOnAnnotationCreationModeChangeListener()
                 setOnPreparePopupToolbarListener()
@@ -3732,6 +3768,7 @@ class PdfReaderViewModel @Inject constructor(
     override fun onUndoClick() {
         viewModelScope.launch {
             this@PdfReaderViewModel.pdfFragment.undoManager.undo()
+            refreshGrayscaleAnnotationOverlays()
             triggerEffect(PdfReaderViewEffect.ScreenRefresh)
         }
     }
@@ -3739,8 +3776,28 @@ class PdfReaderViewModel @Inject constructor(
     override fun onRedoClick() {
         viewModelScope.launch {
             this@PdfReaderViewModel.pdfFragment.undoManager.redo()
+            refreshGrayscaleAnnotationOverlays()
             triggerEffect(PdfReaderViewEffect.ScreenRefresh)
         }
+    }
+
+    private fun refreshGrayscaleAnnotationOverlays(pageIndex: Int? = null) {
+        if (!this::grayscaleAnnotationOverlayViewProvider.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        updateGrayscaleAnnotationOverlayMode()
+        if (pageIndex != null && pageIndex >= 0) {
+            grayscaleAnnotationOverlayViewProvider.notifyOverlayViewsChanged(pageIndex)
+        } else {
+            grayscaleAnnotationOverlayViewProvider.notifyOverlayViewsChanged()
+        }
+    }
+
+    private fun updateGrayscaleAnnotationOverlayMode() {
+        if (!this::pdfFragment.isInitialized) {
+            return
+        }
+        pdfFragment.setOverlaidAnnotationTypes(EnumSet.noneOf(AnnotationType::class.java))
     }
 
     override fun onCloseClick() {

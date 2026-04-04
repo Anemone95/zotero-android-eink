@@ -6,6 +6,8 @@ import com.pspdfkit.annotations.InkAnnotation
 import com.pspdfkit.annotations.SquareAnnotation
 import org.json.JSONObject
 import org.zotero.android.database.objects.AnnotationsConfig
+import org.zotero.android.pdf.annotationstyle.AnnotationColorStyles
+import java.util.Locale
 
 private val zoteroAnnotationNameRegex =
     Regex("Zotero-([23456789ABCDEFGHIJKLMNPQRSTUVWXYZ]{8})")
@@ -37,7 +39,14 @@ val Annotation.isZoteroAnnotation: Boolean
     }
 
 val Annotation.baseColor: String get() {
-    return this.color.let { AnnotationsConfig.colorVariationMap[it] } ?: AnnotationsConfig.defaultActiveColor
+    val customBaseColor = this.customData?.optString(AnnotationsConfig.baseColorKey)?.takeIf { !it.isNullOrBlank() }
+    if (customBaseColor != null) {
+        return customBaseColor
+    }
+    return this.color.let { AnnotationsConfig.colorVariationMap[it] }
+        ?: this.color.let { AnnotationsConfig.colorVariationRgbMap[it and 0xFFFFFF] }
+        ?: this.color.let { AnnotationColorStyles.closestSupportedHexOrNull(it) }
+        ?: String.format(Locale.US, "#%06x", this.color and 0xFFFFFF)
 }
 
 val Annotation.shouldRenderPreview: Boolean
