@@ -5,6 +5,7 @@ import android.content.res.Resources
 import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.widget.FrameLayout
 import androidx.activity.compose.LocalActivity
 import androidx.appcompat.app.AppCompatActivity
@@ -35,6 +36,7 @@ fun PdfReaderPspdfKitView(
             val frameLayout = SingleFingerVerticalOnlyFrameLayout(context).apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
+                onScaleEnd = vMInterface::onPdfScaleEnd
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
                 onTextSelectionEnd = vMInterface::onTextSelectionEnd
@@ -59,6 +61,7 @@ fun PdfReaderPspdfKitView(
             (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
+                onScaleEnd = vMInterface::onPdfScaleEnd
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
                 onTextSelectionEnd = vMInterface::onTextSelectionEnd
@@ -72,6 +75,7 @@ private class SingleFingerVerticalOnlyFrameLayout(
 ) : FrameLayout(context) {
     var lockHorizontalSingleFingerPan: Boolean = false
     var onDoubleTap: (() -> Unit)? = null
+    var onScaleEnd: (() -> Unit)? = null
     var isTextSelectionModeActive: () -> Boolean = { false }
     var onTextSelectionMove: ((Float, Float) -> Unit)? = null
     var onTextSelectionEnd: (() -> Unit)? = null
@@ -82,6 +86,28 @@ private class SingleFingerVerticalOnlyFrameLayout(
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 onDoubleTap?.invoke()
                 return false
+            }
+        }
+    )
+    private val scaleGestureDetector = ScaleGestureDetector(
+        context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            private var inScaleGesture = false
+
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                inScaleGesture = true
+                return true
+            }
+
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                return true
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                if (inScaleGesture) {
+                    this@SingleFingerVerticalOnlyFrameLayout.onScaleEnd?.invoke()
+                }
+                inScaleGesture = false
             }
         }
     )
@@ -102,10 +128,12 @@ private class SingleFingerVerticalOnlyFrameLayout(
         }
 
         if (!lockHorizontalSingleFingerPan) {
+            val handled = super.dispatchTouchEvent(event)
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 lockedX = null
             }
-            return super.dispatchTouchEvent(event)
+            scaleGestureDetector.onTouchEvent(event)
+            return handled
         }
 
         when (event.actionMasked) {
@@ -131,11 +159,14 @@ private class SingleFingerVerticalOnlyFrameLayout(
             return try {
                 super.dispatchTouchEvent(adjustedEvent)
             } finally {
+                scaleGestureDetector.onTouchEvent(event)
                 adjustedEvent.recycle()
             }
         }
 
-        return super.dispatchTouchEvent(event)
+        val handled = super.dispatchTouchEvent(event)
+        scaleGestureDetector.onTouchEvent(event)
+        return handled
     }
 }
 

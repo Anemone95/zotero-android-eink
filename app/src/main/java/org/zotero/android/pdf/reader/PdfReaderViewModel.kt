@@ -747,6 +747,26 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
+    override fun onPdfScaleEnd() {
+        if (!shouldStabilizeContinuousCropScale()) {
+            return
+        }
+        if (!this::pdfFragment.isInitialized) {
+            return
+        }
+        val rootView = pdfFragment.view ?: return
+        val stabilize = {
+            runCatching {
+                NutrientContinuousScaleStabilizer.stabilize(pdfFragment)
+            }.onFailure {
+                Timber.d(it, "Continuous scale stabilization failed")
+            }
+            Unit
+        }
+        rootView.post(stabilize)
+        rootView.postDelayed(stabilize, 64L)
+    }
+
     private fun cropPage(pageIndex: Int) {
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
             return
@@ -3008,6 +3028,7 @@ class PdfReaderViewModel @Inject constructor(
 //            .disableAnnotationRotation()
 //            .setSelectedAnnotationResizeEnabled(false)
             .autosaveEnabled(false)
+            .zoomOutBounce(false)
             .scrollbarsEnabled(true)
             .defaultToolbarEnabled(false)
             .documentTitleOverlayEnabled(false)
@@ -3015,6 +3036,12 @@ class PdfReaderViewModel @Inject constructor(
             .hideUserInterfaceWhenCreatingAnnotations(false)
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
             .build()
+    }
+
+    private fun shouldStabilizeContinuousCropScale(): Boolean {
+        val pdfSettings = defaults.getPDFSettings()
+        return pdfSettings.pageFitting == PageFitting.CROP &&
+            pdfSettings.transition == org.zotero.android.pdf.data.PageScrollMode.CONTINUOUS
     }
 
     override fun loadAnnotationPreviews(keys: List<String>) {
