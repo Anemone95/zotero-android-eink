@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.greenrobot.eventbus.EventBus
 import org.zotero.android.architecture.BaseViewModel2
+import org.zotero.android.architecture.Defaults
 import org.zotero.android.architecture.ScreenArguments
 import org.zotero.android.architecture.ViewEffect
 import org.zotero.android.architecture.ViewState
@@ -16,6 +17,7 @@ import org.zotero.android.database.objects.AnnotationsConfig
 import org.zotero.android.pdf.colorpicker.data.PdfReaderColorPickerResult
 import org.zotero.android.pdf.data.PdfReaderCurrentThemeEventStream
 import org.zotero.android.pdf.data.PdfReaderThemeDecider
+import org.zotero.android.screens.settings.EInkMode
 import javax.inject.Inject
 
 var queuedUpPdfReaderColorPickerResult: PdfReaderColorPickerResult? = null
@@ -23,6 +25,7 @@ var queuedUpPdfReaderColorPickerResult: PdfReaderColorPickerResult? = null
 
 @HiltViewModel
 internal class PdfReaderColorPickerViewModel @Inject constructor(
+    private val defaults: Defaults,
     private val pdfReaderCurrentThemeEventStream: PdfReaderCurrentThemeEventStream,
     private val pdfReaderThemeDecider: PdfReaderThemeDecider,
 ) : BaseViewModel2<PdfReaderColorPickerViewState, PdfReaderColorPickerViewEffect>(PdfReaderColorPickerViewState()) {
@@ -59,6 +62,7 @@ internal class PdfReaderColorPickerViewModel @Inject constructor(
                 copy(
                     selectedColor = selectedColor,
                     size = colorPickerArgs.size,
+                    useGrayscaleEInkStyles = defaults.getEInkMode() == EInkMode.Grayscale,
                 )
             }
         }
@@ -119,6 +123,7 @@ internal data class PdfReaderColorPickerViewState(
     val size: Float? = null,
     val colors: List<String> = emptyList(),
     val isDark: Boolean = false,
+    val useGrayscaleEInkStyles: Boolean = false,
 ) : ViewState
 
 internal sealed class PdfReaderColorPickerViewEffect : ViewEffect {

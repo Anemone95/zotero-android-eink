@@ -27,6 +27,7 @@ internal fun PdfAnnotationMoreColorPicker(
             PdfAnnotationMoreFilterCircle(
                 hex = listColorHex,
                 isSelected = listColorHex == selectedColor,
+                useGrayscaleEInkStyles = viewState.useGrayscaleEInkStyles,
                 onClick = { viewModel.onColorSelected(listColorHex) })
         }
     }

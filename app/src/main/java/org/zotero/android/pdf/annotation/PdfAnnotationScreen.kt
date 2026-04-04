@@ -83,6 +83,7 @@ internal fun PdfAnnotationScreen(
             onColorSelected = viewModel::onColorSelected,
             colors = viewState.colors,
             selectedColor = selectedColor,
+            useGrayscaleEInkStyles = viewState.useGrayscaleEInkStyles,
             tags = viewState.tags,
             onTagsClicked = viewModel::onTagsClicked,
             commentFocusText = viewState.commentFocusText,
@@ -106,6 +107,7 @@ internal fun PdfAnnotationPart(
     onColorSelected: (String) -> Unit,
     colors: List<String>,
     selectedColor: String,
+    useGrayscaleEInkStyles: Boolean,
     tags: List<Tag>,
     onTagsClicked: () -> Unit,
     commentFocusText: String,
@@ -127,6 +129,7 @@ internal fun PdfAnnotationPart(
             PdfAnnotationHeaderRow(
                 annotation = annotation,
                 annotationColor = annotationColor,
+                useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                 onBack = onDone,
             )
         }
@@ -139,6 +142,7 @@ internal fun PdfAnnotationPart(
                     onCommentTextChange = onCommentTextChange,
                     selectedColor = selectedColor,
                     colors = colors,
+                    useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                     commentFocusText = commentFocusText,
                     tags = tags,
                     onTagsClicked = onTagsClicked
@@ -150,6 +154,7 @@ internal fun PdfAnnotationPart(
                     onCommentTextChange = onCommentTextChange,
                     selectedColor = selectedColor,
                     colors = colors,
+                    useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                     commentFocusText = commentFocusText,
                     tags = tags,
                     onTagsClicked = onTagsClicked
@@ -171,6 +176,7 @@ internal fun PdfAnnotationPart(
                     onCommentTextChange = onCommentTextChange,
                     selectedColor = selectedColor,
                     colors = colors,
+                    useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                     commentFocusText = commentFocusText,
                     tags = tags,
                     onTagsClicked = onTagsClicked
@@ -181,6 +187,7 @@ internal fun PdfAnnotationPart(
                     onCommentTextChange = onCommentTextChange,
                     selectedColor = selectedColor,
                     colors = colors,
+                    useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                     commentFocusText = commentFocusText,
                     tags = tags,
                     onTagsClicked = onTagsClicked
@@ -193,6 +200,7 @@ internal fun PdfAnnotationPart(
                     onColorSelected = onColorSelected,
                     colors = colors,
                     selectedColor = selectedColor,
+                    useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                     tags = tags,
                     onTagsClicked = onTagsClicked
                 )

@@ -1,6 +1,7 @@
 package org.zotero.android.database.objects
 
 import com.pspdfkit.annotations.AnnotationType
+import org.zotero.android.pdf.annotationstyle.AnnotationColorStyles
 import org.zotero.android.sync.AnnotationColorGenerator
 import java.util.EnumSet
 
@@ -33,9 +34,11 @@ object AnnotationsConfig {
         AnnotationType.FREETEXT,
     )
     const val keyKey = "Zotero:Key"
+    const val baseColorKey = "Zotero:BaseColor"
     val noteAnnotationSize = Pair(22F, 22F)
     const val imageAnnotationLineWidth = 2F
     val colorVariationMap: Map<Int, String> = createColorVariationMap()
+    val colorVariationRgbMap: Map<Int, String> = createColorVariationRgbMap()
 
     private fun createColorVariationMap(): Map<Int, String> {
         val map = mutableMapOf<Int, String>()
@@ -55,34 +58,15 @@ object AnnotationsConfig {
         return map
     }
 
-    fun colors(type: org.zotero.android.database.objects.AnnotationType): List<String> {
-        return when (type) {
-            org.zotero.android.database.objects.AnnotationType.ink, org.zotero.android.database.objects.AnnotationType.text -> {
-                listOf(
-                    "#ffd400",
-                    "#ff6666",
-                    "#5fb236",
-                    "#2ea8e5",
-                    "#a28ae5",
-                    "#e56eee",
-                    "#f19837",
-                    "#aaaaaa",
-                    "#000000"
-                )
-            }
-
-            else -> {
-                listOf(
-                    "#ffd400",
-                    "#ff6666",
-                    "#5fb236",
-                    "#2ea8e5",
-                    "#a28ae5",
-                    "#e56eee",
-                    "#f19837",
-                    "#aaaaaa"
-                )
-            }
+    private fun createColorVariationRgbMap(): Map<Int, String> {
+        val map = mutableMapOf<Int, String>()
+        for ((variation, baseColor) in colorVariationMap) {
+            map.putIfAbsent(variation and 0xFFFFFF, baseColor)
         }
+        return map
+    }
+
+    fun colors(type: org.zotero.android.database.objects.AnnotationType): List<String> {
+        return AnnotationColorStyles.pickerColors
     }
 }

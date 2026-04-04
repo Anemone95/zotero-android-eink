@@ -14,6 +14,7 @@ internal fun PdfAnnotationColorPicker(
     colors: List<String>,
     onColorSelected: (color: String) -> Unit,
     selectedColor: String,
+    useGrayscaleEInkStyles: Boolean,
 ) {
     Row(
         modifier = Modifier
@@ -26,6 +27,7 @@ internal fun PdfAnnotationColorPicker(
             PdfAnnotationFilterCircle(
                 hex = listColorHex,
                 isSelected = listColorHex == selectedColor,
+                useGrayscaleEInkStyles = useGrayscaleEInkStyles,
                 onClick = { onColorSelected(listColorHex) })
         }
     }

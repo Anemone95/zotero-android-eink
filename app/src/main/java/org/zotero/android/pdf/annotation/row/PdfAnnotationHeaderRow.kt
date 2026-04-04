@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.zotero.android.R
 import org.zotero.android.database.objects.AnnotationType
+import org.zotero.android.pdf.annotationstyle.AnnotationColorHeaderBadge
 import org.zotero.android.pdf.data.PDFAnnotation
 import org.zotero.android.uicomponents.Drawables
 import org.zotero.android.uicomponents.Strings
@@ -32,6 +33,7 @@ import org.zotero.android.uicomponents.theme.CustomTheme
 internal fun PdfAnnotationHeaderRow(
     annotation: PDFAnnotation,
     annotationColor: Color,
+    useGrayscaleEInkStyles: Boolean,
     onBack: () -> Unit,
 ) {
     val title = stringResource(R.string.page) + " " + annotation.pageLabel
@@ -63,6 +65,13 @@ internal fun PdfAnnotationHeaderRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (useGrayscaleEInkStyles) {
+                Spacer(modifier = Modifier.width(8.dp))
+                AnnotationColorHeaderBadge(
+                    hex = annotation.displayColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         Row(

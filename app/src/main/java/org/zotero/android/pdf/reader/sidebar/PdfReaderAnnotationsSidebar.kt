@@ -104,6 +104,7 @@ internal fun PdfReaderAnnotationsSidebar(
                     PdfReaderAnnotationsSidebarHeaderSection(
                         annotation = annotation,
                         annotationColor = annotationColor,
+                        useGrayscaleEInkStyles = vMInterface.isGrayscaleEInkModeEnabled,
                         viewState = viewState,
                         vMInterface = vMInterface,
                     )
@@ -122,6 +123,7 @@ internal fun PdfReaderAnnotationsSidebar(
                             PdfReaderAnnotationsSidebarHighlightRow(
                                 annotation = annotation,
                                 annotationColor = annotationColor,
+                                useGrayscaleEInkStyles = vMInterface.isGrayscaleEInkModeEnabled,
                                 vMInterface = vMInterface,
                                 viewState = viewState,
                             )
@@ -158,6 +160,7 @@ internal fun PdfReaderAnnotationsSidebar(
                             PdfReaderAnnotationsSidebarUnderlineRow(
                                 annotation = annotation,
                                 annotationColor = annotationColor,
+                                useGrayscaleEInkStyles = vMInterface.isGrayscaleEInkModeEnabled,
                                 vMInterface = vMInterface,
                                 viewState = viewState,
                             )

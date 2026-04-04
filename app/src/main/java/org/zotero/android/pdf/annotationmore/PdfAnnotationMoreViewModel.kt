@@ -9,6 +9,7 @@ import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import org.zotero.android.architecture.BaseViewModel2
+import org.zotero.android.architecture.Defaults
 import org.zotero.android.architecture.ScreenArguments
 import org.zotero.android.architecture.ViewEffect
 import org.zotero.android.architecture.ViewState
@@ -22,10 +23,12 @@ import org.zotero.android.pdf.annotationmore.editpage.data.PdfAnnotationEditPage
 import org.zotero.android.pdf.data.PdfReaderCurrentThemeEventStream
 import org.zotero.android.pdf.data.PdfReaderThemeDecider
 import org.zotero.android.pdf.reader.AnnotationKey
+import org.zotero.android.screens.settings.EInkMode
 import javax.inject.Inject
 
 @HiltViewModel
 internal class PdfAnnotationMoreViewModel @Inject constructor(
+    private val defaults: Defaults,
     private val pdfReaderCurrentThemeEventStream: PdfReaderCurrentThemeEventStream,
     private val pdfReaderThemeDecider: PdfReaderThemeDecider,
 ) : BaseViewModel2<PdfAnnotationMoreViewState, PdfAnnotationMoreViewEffect>(
@@ -64,6 +67,7 @@ internal class PdfAnnotationMoreViewModel @Inject constructor(
                 highlightText = annotation.text ?: "",
                 pageLabel = annotation.pageLabel,
                 underlineText = annotation.text ?: "",
+                useGrayscaleEInkStyles = defaults.getEInkMode() == EInkMode.Grayscale,
             )
         }
     }
@@ -181,6 +185,7 @@ internal data class PdfAnnotationMoreViewState(
     val updateSubsequentLabels: Boolean = false,
     val highlightText: String = "",
     val underlineText: String = "",
+    val useGrayscaleEInkStyles: Boolean = false,
 ) : ViewState
 
 internal sealed class PdfAnnotationMoreViewEffect : ViewEffect {
