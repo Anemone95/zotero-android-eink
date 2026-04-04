@@ -14,8 +14,13 @@ internal fun PdfReaderAnnotationsSidebarHighlightRow(
     viewState: PdfReaderViewState,
     vMInterface: PdfReaderVMInterface,
     annotationColor: Color,
+    useGrayscaleEInkStyles: Boolean,
 ) {
-    PdfReaderAnnotationsSidebarHighlightedTextSection(annotationColor = annotationColor, annotation = annotation)
+    PdfReaderAnnotationsSidebarHighlightedTextSection(
+        annotationColor = annotationColor,
+        annotation = annotation,
+        useGrayscaleEInkStyles = useGrayscaleEInkStyles,
+    )
 
     PdfReaderAnnotationsSidebarTagsAndCommentsSection(
         annotation = annotation,

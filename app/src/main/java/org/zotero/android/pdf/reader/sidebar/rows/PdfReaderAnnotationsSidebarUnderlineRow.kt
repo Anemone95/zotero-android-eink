@@ -14,8 +14,13 @@ internal fun PdfReaderAnnotationsSidebarUnderlineRow(
     viewState: PdfReaderViewState,
     vMInterface: PdfReaderVMInterface,
     annotationColor: Color,
+    useGrayscaleEInkStyles: Boolean,
 ) {
-    PdfReaderAnnotationsSidebarUnderlineTextSection(annotationColor = annotationColor, annotation = annotation)
+    PdfReaderAnnotationsSidebarUnderlineTextSection(
+        annotationColor = annotationColor,
+        annotation = annotation,
+        useGrayscaleEInkStyles = useGrayscaleEInkStyles,
+    )
 
     PdfReaderAnnotationsSidebarTagsAndCommentsSection(
         annotation = annotation,

@@ -12,6 +12,7 @@ import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import org.zotero.android.architecture.BaseViewModel2
+import org.zotero.android.architecture.Defaults
 import org.zotero.android.architecture.ScreenArguments
 import org.zotero.android.architecture.ViewEffect
 import org.zotero.android.architecture.ViewState
@@ -24,6 +25,7 @@ import org.zotero.android.pdf.annotation.data.PdfAnnotationFontSizeResult
 import org.zotero.android.pdf.annotation.data.PdfAnnotationSizeResult
 import org.zotero.android.pdf.data.PdfReaderCurrentThemeEventStream
 import org.zotero.android.pdf.data.PdfReaderThemeDecider
+import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.screens.tagpicker.data.TagPickerArgs
 import org.zotero.android.screens.tagpicker.data.TagPickerResult
 import org.zotero.android.sync.Tag
@@ -31,6 +33,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 internal class PdfAnnotationViewModel @Inject constructor(
+    private val defaults: Defaults,
     private val pdfReaderCurrentThemeEventStream: PdfReaderCurrentThemeEventStream,
     private val pdfReaderThemeDecider: PdfReaderThemeDecider,
 ) : BaseViewModel2<PdfAnnotationViewState, PdfAnnotationViewEffect>(PdfAnnotationViewState()) {
@@ -72,7 +75,8 @@ internal class PdfAnnotationViewModel @Inject constructor(
                 tags = args.selectedAnnotation.tags.toImmutableList(),
                 commentFocusText = annotation.comment,
                 size = annotation.lineWidth ?: 1.0f,
-                fontSize = annotation.fontSize ?: 12.0f
+                fontSize = annotation.fontSize ?: 12.0f,
+                useGrayscaleEInkStyles = defaults.getEInkMode() == EInkMode.Grayscale,
             )
         }
     }
@@ -205,6 +209,7 @@ internal data class PdfAnnotationViewState(
     val colors: ImmutableList<String> = persistentListOf(),
     val fontSize: Float = 12f,
     val size: Float = 1.0f,
+    val useGrayscaleEInkStyles: Boolean = false,
 ) : ViewState
 
 internal sealed class PdfAnnotationViewEffect : ViewEffect {

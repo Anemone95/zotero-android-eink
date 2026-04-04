@@ -17,6 +17,7 @@ interface PdfReaderVMInterface {
     val activeAnnotationTool: AnnotationTool?
     val isTextSelectionModeActive: Boolean
     val isEInkModeEnabled: Boolean
+    val isGrayscaleEInkModeEnabled: Boolean
     val shouldShowRotateButton: Boolean
     var toolColors: MutableMap<AnnotationTool, String>
 

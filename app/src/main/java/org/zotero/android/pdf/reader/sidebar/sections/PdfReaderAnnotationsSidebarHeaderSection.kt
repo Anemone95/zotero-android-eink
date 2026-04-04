@@ -25,6 +25,7 @@ import org.zotero.android.pdf.data.PDFAnnotation
 import org.zotero.android.pdf.reader.PdfReaderVMInterface
 import org.zotero.android.pdf.reader.PdfReaderViewState
 import org.zotero.android.pdf.reader.sidebar.sectionHorizontalPadding
+import org.zotero.android.pdf.annotationstyle.AnnotationColorHeaderBadge
 import org.zotero.android.uicomponents.Drawables
 import org.zotero.android.uicomponents.Strings
 import org.zotero.android.uicomponents.foundation.safeClickable
@@ -36,6 +37,7 @@ internal fun PdfReaderAnnotationsSidebarHeaderSection(
     viewState: PdfReaderViewState,
     annotation: PDFAnnotation,
     annotationColor: Color,
+    useGrayscaleEInkStyles: Boolean,
 ) {
     val title = stringResource(Strings.page) + " " + annotation.pageLabel
     val icon = when (annotation.type) {
@@ -66,6 +68,13 @@ internal fun PdfReaderAnnotationsSidebarHeaderSection(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        if (useGrayscaleEInkStyles) {
+            Spacer(modifier = Modifier.width(8.dp))
+            AnnotationColorHeaderBadge(
+                hex = annotation.displayColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
         if (viewState.isAnnotationSelected(annotation.key)) {
             if (annotation.isZoteroAnnotation) {

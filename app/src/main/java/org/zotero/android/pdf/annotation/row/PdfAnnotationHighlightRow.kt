@@ -16,6 +16,7 @@ internal fun PdfAnnotationHighlightRow(
     colors: List<String>,
     onColorSelected: (color: String) -> Unit,
     selectedColor: String,
+    useGrayscaleEInkStyles: Boolean,
     tags: List<Tag>,
     onTagsClicked: () -> Unit
 ) {
@@ -30,6 +31,7 @@ internal fun PdfAnnotationHighlightRow(
             colors = colors,
             onColorSelected = onColorSelected,
             selectedColor = selectedColor,
+            useGrayscaleEInkStyles = useGrayscaleEInkStyles,
         )
         NewSettingsDivider()
         PdfAnnotationTagsSection(

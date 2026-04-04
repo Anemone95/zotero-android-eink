@@ -3715,6 +3715,9 @@ class PdfReaderViewModel @Inject constructor(
     override val isEInkModeEnabled: Boolean
         get() = defaults.getEInkMode() != EInkMode.Off
 
+    override val isGrayscaleEInkModeEnabled: Boolean
+        get() = defaults.getEInkMode() == EInkMode.Grayscale
+
     override val shouldShowRotateButton: Boolean
         get() = defaults.getEInkMode() == EInkMode.Grayscale
 

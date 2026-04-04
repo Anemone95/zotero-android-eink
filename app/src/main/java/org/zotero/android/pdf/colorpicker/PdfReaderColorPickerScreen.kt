@@ -1,6 +1,7 @@
 package org.zotero.android.pdf.colorpicker
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.hilt.navigation.compose.hiltViewModel
+import org.zotero.android.pdf.annotationstyle.AnnotationColorToken
 import org.zotero.android.uicomponents.CustomScaffoldM3
 import org.zotero.android.uicomponents.Strings
 import org.zotero.android.uicomponents.foundation.debounceClickable
@@ -113,6 +115,7 @@ private fun ColorPicker(
                 FilterCircle(
                     hex = listColorHex,
                     isSelected = listColorHex == selectedColor,
+                    useGrayscaleEInkStyles = viewState.useGrayscaleEInkStyles,
                     onClick = { viewModel.onColorSelected(listColorHex) })
             }
         }
@@ -120,25 +123,40 @@ private fun ColorPicker(
 }
 
 @Composable
-private fun FilterCircle(hex: String, isSelected: Boolean, onClick: () -> Unit) {
-    val color = hex.toColorInt()
-    Canvas(modifier = Modifier
+private fun FilterCircle(
+    hex: String,
+    isSelected: Boolean,
+    useGrayscaleEInkStyles: Boolean,
+    onClick: () -> Unit,
+) {
+    val clickableModifier = Modifier
         .padding(4.dp)
         .size(32.dp)
         .debounceClickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
             onClick = onClick
-        ), onDraw = {
-        drawCircle(color = Color(color))
-        if (isSelected) {
-            drawCircle(
-                color = CustomPalette.White,
-                radius = 12.dp.toPx(),
-                style = Stroke(width = 3.dp.toPx())
+        )
+
+    if (useGrayscaleEInkStyles) {
+        Box(modifier = clickableModifier) {
+            AnnotationColorToken(
+                hex = hex,
+                isSelected = isSelected,
+                modifier = Modifier.matchParentSize()
             )
         }
-    })
+    } else {
+        val color = hex.toColorInt()
+        Canvas(modifier = clickableModifier, onDraw = {
+            drawCircle(color = Color(color))
+            if (isSelected) {
+                drawCircle(
+                    color = CustomPalette.White,
+                    radius = 12.dp.toPx(),
+                    style = Stroke(width = 3.dp.toPx())
+                )
+            }
+        })
+    }
 }
-
-

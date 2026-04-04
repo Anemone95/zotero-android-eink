@@ -16,6 +16,7 @@ internal fun PdfAnnotationUnderlineRow(
     colors: List<String>,
     onColorSelected: (color: String) -> Unit,
     selectedColor: String,
+    useGrayscaleEInkStyles: Boolean,
     tags: List<Tag>,
     onTagsClicked: () -> Unit
 ) {
@@ -30,7 +31,8 @@ internal fun PdfAnnotationUnderlineRow(
         PdfAnnotationColorPicker(
             colors = colors,
             onColorSelected = onColorSelected,
-            selectedColor = selectedColor
+            selectedColor = selectedColor,
+            useGrayscaleEInkStyles = useGrayscaleEInkStyles,
         )
         NewSettingsDivider()
         PdfAnnotationTagsSection(

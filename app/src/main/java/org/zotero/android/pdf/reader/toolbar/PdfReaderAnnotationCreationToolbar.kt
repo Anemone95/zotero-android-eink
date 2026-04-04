@@ -201,7 +201,11 @@ internal fun BoxScope.PdfReaderAnnotationCreationToolbar(
                 } else {
                     val color = vMInterface.toolColors[activeAnnotationTool]
                     if (color != null) {
-                        PdfReaderFilledFilterCircle(hex = color, onClick = vMInterface::showToolOptions)
+                        PdfReaderFilledFilterCircle(
+                            hex = color,
+                            useGrayscaleEInkStyles = vMInterface.isGrayscaleEInkModeEnabled,
+                            onClick = vMInterface::showToolOptions
+                        )
                     }
                 }
             }

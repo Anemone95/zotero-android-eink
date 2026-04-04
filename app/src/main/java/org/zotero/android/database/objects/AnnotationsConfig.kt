@@ -1,6 +1,7 @@
 package org.zotero.android.database.objects
 
 import com.pspdfkit.annotations.AnnotationType
+import org.zotero.android.pdf.annotationstyle.AnnotationColorStyles
 import org.zotero.android.sync.AnnotationColorGenerator
 import java.util.EnumSet
 
@@ -56,33 +57,6 @@ object AnnotationsConfig {
     }
 
     fun colors(type: org.zotero.android.database.objects.AnnotationType): List<String> {
-        return when (type) {
-            org.zotero.android.database.objects.AnnotationType.ink, org.zotero.android.database.objects.AnnotationType.text -> {
-                listOf(
-                    "#ffd400",
-                    "#ff6666",
-                    "#5fb236",
-                    "#2ea8e5",
-                    "#a28ae5",
-                    "#e56eee",
-                    "#f19837",
-                    "#aaaaaa",
-                    "#000000"
-                )
-            }
-
-            else -> {
-                listOf(
-                    "#ffd400",
-                    "#ff6666",
-                    "#5fb236",
-                    "#2ea8e5",
-                    "#a28ae5",
-                    "#e56eee",
-                    "#f19837",
-                    "#aaaaaa"
-                )
-            }
-        }
+        return AnnotationColorStyles.pickerColors
     }
 }
