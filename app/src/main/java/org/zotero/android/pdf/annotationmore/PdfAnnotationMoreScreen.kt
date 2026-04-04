@@ -84,6 +84,7 @@ internal fun PdfAnnotationMoreScreen(
             PdfAnnotationMorePart(
                 viewState = viewState,
                 viewModel = viewModel,
+                onClose = onBack,
             )
         }
     }
@@ -93,6 +94,7 @@ internal fun PdfAnnotationMoreScreen(
 internal fun PdfAnnotationMorePart(
     viewState: PdfAnnotationMoreViewState,
     viewModel: PdfAnnotationMoreViewModel,
+    onClose: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -153,19 +155,24 @@ internal fun PdfAnnotationMorePart(
         }
         item {
             NewSettingsDivider()
-            DeleteButton(viewModel = viewModel)
+            DeleteButton(
+                onDeleteAnnotation = {
+                    viewModel.onDeleteAnnotation()
+                    onClose()
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun DeleteButton(viewModel: PdfAnnotationMoreViewModel) {
+private fun DeleteButton(onDeleteAnnotation: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
             .safeClickable(
-                onClick = viewModel::onDeleteAnnotation,
+                onClick = onDeleteAnnotation,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = true)
             ), contentAlignment = Alignment.CenterStart

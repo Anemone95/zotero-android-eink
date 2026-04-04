@@ -76,6 +76,7 @@ internal fun PdfAnnotationScreen(
         PdfAnnotationPart(
             stateAnnotation = stateAnnotation,
             onDone = viewModel::onDone,
+            onClose = onBack,
             fontSize = viewState.fontSize,
             onFontSizeDecrease = viewModel::onFontSizeDecrease,
             onFontSizeIncrease = viewModel::onFontSizeIncrease,
@@ -97,6 +98,7 @@ internal fun PdfAnnotationScreen(
 internal fun PdfAnnotationPart(
     stateAnnotation: PDFAnnotation?,
     onDone: () -> Unit,
+    onClose: () -> Unit,
     onDeleteAnnotation: () -> Unit,
     fontSize: Float,
     onFontSizeDecrease: () -> Unit,
@@ -199,7 +201,12 @@ internal fun PdfAnnotationPart(
         item {
             if (annotation.isZoteroAnnotation) {
                 NewSettingsDivider()
-                DeleteButton(onDeleteAnnotation = onDeleteAnnotation)
+                DeleteButton(
+                    onDeleteAnnotation = {
+                        onDeleteAnnotation()
+                        onClose()
+                    }
+                )
             }
 
         }

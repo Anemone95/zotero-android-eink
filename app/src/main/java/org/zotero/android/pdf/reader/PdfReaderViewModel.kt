@@ -577,6 +577,9 @@ class PdfReaderViewModel @Inject constructor(
                 clickedAnnotation: Annotation?
             ): Boolean {
                 decideTopBarAndBottomBarVisibility(clickedAnnotation)
+                if (clickedAnnotation != null && isAnnotationSelectable(clickedAnnotation)) {
+                    selectAnnotationFromDocument(annotationKey(clickedAnnotation))
+                }
                 return false
             }
         })
@@ -618,6 +621,21 @@ class PdfReaderViewModel @Inject constructor(
             return
         }
 
+    }
+
+    private fun isAnnotationSelectable(annotation: Annotation): Boolean {
+        return annotation.isZoteroAnnotation || !setOf(
+            AnnotationType.STAMP,
+            AnnotationType.LINE,
+            AnnotationType.CIRCLE,
+            AnnotationType.SQUARE,
+        ).contains(annotation.type)
+    }
+
+    private fun annotationKey(annotation: Annotation): AnnotationKey {
+        val key = annotation.key ?: annotation.uuid
+        val type = if (annotation.isZoteroAnnotation) Kind.database else Kind.document
+        return AnnotationKey(key = key, type = type)
     }
 
     private fun setOnPreparePopupToolbarListener() {
@@ -1424,13 +1442,7 @@ class PdfReaderViewModel @Inject constructor(
                 annotation: Annotation,
                 p2: Boolean
             ): Boolean {
-                if (!annotation.isZoteroAnnotation && setOf(
-                        AnnotationType.STAMP,
-                        AnnotationType.LINE,
-                        AnnotationType.CIRCLE,
-                        AnnotationType.SQUARE
-                    ).contains(annotation.type)
-                ) {
+                if (!isAnnotationSelectable(annotation)) {
                     return false
                 }
                 //no-op
@@ -1438,12 +1450,7 @@ class PdfReaderViewModel @Inject constructor(
             }
 
             override fun onAnnotationSelected(annotation: Annotation, annotationCreated: Boolean) {
-                val key = annotation.key ?: annotation.uuid
-                val type: Kind =
-                    if (annotation.isZoteroAnnotation) Kind.database else Kind.document
-                selectAnnotationFromDocument(
-                    key = AnnotationKey(key = key, type = type),
-                )
+                selectAnnotationFromDocument(annotationKey(annotation))
             }
 
             override fun onAnnotationDeselected(annotation: Annotation, annotationDeleted: Boolean) {
@@ -3004,6 +3011,7 @@ class PdfReaderViewModel @Inject constructor(
             .invertColors(isCalculatedThemeDark)
             .themeMode(themeMode)
             .showNoteEditorForNewNoteAnnotations(false)
+            .zoomOutBounce(false)
 //            .disableFormEditing()
 //            .disableAnnotationRotation()
 //            .setSelectedAnnotationResizeEnabled(false)
@@ -3364,6 +3372,9 @@ class PdfReaderViewModel @Inject constructor(
                 clickedAnnotation: Annotation?
             ): Boolean {
                 decideTopBarAndBottomBarVisibility(clickedAnnotation)
+                if (clickedAnnotation != null && isAnnotationSelectable(clickedAnnotation)) {
+                    selectAnnotationFromDocument(annotationKey(clickedAnnotation))
+                }
                 return false
             }
         })

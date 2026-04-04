@@ -44,18 +44,19 @@ internal fun PdfAnnotationNavigation(
         popEnterTransition = { if (disableAnimations) EnterTransition.None else slideInHorizontally(initialOffsetX = { -it }) },
         popExitTransition = { if (disableAnimations) ExitTransition.None else slideOutHorizontally(targetOffsetX = { it }) },
     ) {
-        pdfAnnotationNavScreens(args = args, navigation = navigation)
+        pdfAnnotationNavScreens(args = args, navigation = navigation, onClose = onBack)
     }
 }
 
 internal fun NavGraphBuilder.pdfAnnotationNavScreens(
     args: PdfAnnotationArgs,
     navigation: ZoteroNavigation,
+    onClose: () -> Unit,
 ) {
 
     pdfAnnotationScreen(
         args = args,
-        onBack = navigation::onBack,
+        onBack = onClose,
         navigateToTagPicker = navigation::toTagPicker
     )
     tagPickerScreen(onBack = navigation::onBack)
