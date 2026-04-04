@@ -28,6 +28,7 @@ internal fun SettingsScreen(
     toDebugScreen: () -> Unit,
     toCiteScreen: () -> Unit,
     toQuickCopyScreen: () -> Unit,
+    toTranslateScreen: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     AppThemeM3 {
@@ -80,11 +81,18 @@ internal fun SettingsScreen(
                     title = stringResource(id = Strings.settings_debug),
                     onItemTapped = toDebugScreen,
                 )
+
+                NewSettingsDivider()
+
                 NewSettingsOptionItem(
                     title = stringResource(id = Strings.settings_e_ink_mode),
                     options = EInkMode.entries,
                     selectedOption = viewState.selectedEInkMode,
                     onOptionSelected = viewModel::onEInkModeChanged,
+                )
+                NewSettingsItem(
+                    title = stringResource(id = Strings.settings_translate_title),
+                    onItemTapped = toTranslateScreen,
                 )
 
                 NewSettingsDivider()
