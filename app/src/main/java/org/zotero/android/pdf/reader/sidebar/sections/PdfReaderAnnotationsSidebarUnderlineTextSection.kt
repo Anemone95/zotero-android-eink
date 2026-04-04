@@ -3,8 +3,6 @@ package org.zotero.android.pdf.reader.sidebar.sections
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,20 +34,11 @@ internal fun PdfReaderAnnotationsSidebarUnderlineTextSection(
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .width(5.dp)
-                        .fillMaxHeight()
-                        .background(Color.Black.copy(alpha = 0.72f))
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = annotation.text ?: "",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+            Text(
+                text = annotation.text ?: "",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     } else {
         Box(

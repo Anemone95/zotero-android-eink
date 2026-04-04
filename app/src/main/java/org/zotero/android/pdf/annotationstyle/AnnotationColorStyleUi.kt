@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -28,7 +29,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 private val tokenShape = RoundedCornerShape(10.dp)
 private val headerShape = RoundedCornerShape(8.dp)
@@ -49,20 +53,20 @@ internal fun AnnotationColorToken(
             .background(MaterialTheme.colorScheme.surface)
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {
-            drawPanelBackground(style = style, cornerRadius = 10.dp)
-            val strokeWidth = if (isSelected) 2.5.dp.toPx() else 1.dp.toPx()
-            drawRoundRect(
-                color = if (isSelected) inkColor else secondaryInkColor.copy(alpha = 0.35f),
-                cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx()),
-                style = Stroke(width = strokeWidth),
-            )
+            if (isSelected) {
+                drawRoundRect(
+                    color = inkColor,
+                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx()),
+                    style = Stroke(width = 2.dp.toPx()),
+                )
+            }
         }
         Canvas(
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxSize(0.8f)
+                .fillMaxSize(0.82f)
         ) {
-            drawGlyph(style.glyph)
+            drawIconBadge(style, 10.dp)
         }
     }
 }
@@ -78,20 +82,12 @@ internal fun AnnotationColorHeaderBadge(
             .clip(headerShape)
             .background(MaterialTheme.colorScheme.surface)
     ) {
-        Canvas(modifier = Modifier.matchParentSize()) {
-            drawPanelBackground(style = style, cornerRadius = 8.dp)
-            drawRoundRect(
-                color = secondaryInkColor.copy(alpha = 0.3f),
-                cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx()),
-                style = Stroke(width = 1.dp.toPx()),
-            )
-        }
         Canvas(
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxSize(0.82f)
+                .fillMaxSize(0.84f)
         ) {
-            drawGlyph(style.glyph)
+            drawIconBadge(style, 8.dp)
         }
     }
 }
@@ -109,12 +105,7 @@ internal fun AnnotationPatternPanel(
             .background(MaterialTheme.colorScheme.surface)
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {
-            drawPanelBackground(style = style, cornerRadius = 12.dp)
-            drawRoundRect(
-                color = secondaryInkColor.copy(alpha = 0.22f),
-                cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx()),
-                style = Stroke(width = 1.dp.toPx()),
-            )
+            drawPanelBorder(style, 12.dp)
         }
         Box(
             modifier = Modifier
@@ -125,107 +116,299 @@ internal fun AnnotationPatternPanel(
     }
 }
 
-private fun DrawScope.drawPanelBackground(
+private fun DrawScope.drawIconBadge(style: AnnotationColorStyle, cornerRadius: Dp) {
+    if (style.showsDecorativeBorder()) {
+        drawBadgeBorder(style)
+    }
+    val glyphInset = if (style.showsDecorativeBorder()) size.minDimension * 0.2f else size.minDimension * 0.06f
+    inset(glyphInset, glyphInset, glyphInset, glyphInset) {
+        drawGlyph(style.glyph)
+    }
+}
+
+private fun DrawScope.drawPanelBorder(
     style: AnnotationColorStyle,
     cornerRadius: Dp,
 ) {
-    drawRoundRect(
-        color = AnnotationColorStyles.subtleFill(style.hex),
-        cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
-    )
-    drawTexture(style.texture)
+    if (!style.showsDecorativeBorder()) {
+        return
+    }
+    drawStyledBorder(style, cornerRadius)
 }
 
-private fun DrawScope.drawTexture(texture: AnnotationTexture) {
-    val strokeWidth = 1.dp.toPx()
+private fun DrawScope.drawBadgeBorder(style: AnnotationColorStyle) {
+    val strokeWidth = 1.5.dp.toPx()
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val radius = size.minDimension * 0.42f
+
+    when (style.glyph) {
+        AnnotationGlyph.Marker -> Unit
+        AnnotationGlyph.Question,
+        AnnotationGlyph.Unknown,
+        -> drawCircle(
+            color = inkColor,
+            radius = radius,
+            center = center,
+            style = Stroke(width = strokeWidth),
+        )
+
+        AnnotationGlyph.Exclamation -> drawCircle(
+            color = inkColor,
+            radius = radius,
+            center = center,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(1f, 6f)),
+            ),
+        )
+
+        AnnotationGlyph.Language -> drawCircle(
+            color = inkColor,
+            radius = radius,
+            center = center,
+            style = Stroke(
+                width = strokeWidth,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 5f)),
+            ),
+        )
+
+        AnnotationGlyph.Info -> drawRadialPatternBorder(
+            center = center,
+            baseRadius = radius,
+            amplitude = size.minDimension * 0.03f,
+            cycles = 20,
+            angularSamples = 40,
+            strokeWidth = strokeWidth,
+            rounded = false,
+        )
+
+        AnnotationGlyph.Quotes -> drawRadialPatternBorder(
+            center = center,
+            baseRadius = radius,
+            amplitude = size.minDimension * 0.025f,
+            cycles = 14,
+            angularSamples = 112,
+            strokeWidth = strokeWidth,
+            rounded = true,
+        )
+    }
+}
+
+private fun AnnotationColorStyle.showsDecorativeBorder(): Boolean {
+    return glyph != AnnotationGlyph.Marker
+}
+
+private fun DrawScope.drawStyledBorder(
+    style: AnnotationColorStyle,
+    cornerRadius: Dp,
+) {
+    val insetPx = 1.5.dp.toPx()
+    val left = insetPx
+    val top = insetPx
+    val right = size.width - insetPx
+    val bottom = size.height - insetPx
+    val strokeWidth = 2.dp.toPx()
+
+    when (style.glyph) {
+        AnnotationGlyph.Marker -> Unit
+        AnnotationGlyph.Question,
+        AnnotationGlyph.Unknown,
+        -> {
+            drawRoundRect(
+                color = inkColor,
+                topLeft = Offset(left, top),
+                size = Size(right - left, bottom - top),
+                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                style = Stroke(width = strokeWidth),
+            )
+        }
+
+        AnnotationGlyph.Exclamation -> {
+            drawRoundRect(
+                color = inkColor,
+                topLeft = Offset(left, top),
+                size = Size(right - left, bottom - top),
+                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                style = Stroke(
+                    width = strokeWidth,
+                    cap = StrokeCap.Round,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(1f, 8f)),
+                ),
+            )
+        }
+
+        AnnotationGlyph.Language -> {
+            drawRoundRect(
+                color = inkColor,
+                topLeft = Offset(left, top),
+                size = Size(right - left, bottom - top),
+                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                style = Stroke(
+                    width = strokeWidth,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 7f)),
+                ),
+            )
+        }
+
+        AnnotationGlyph.Info -> drawSawtoothBorder(left, top, right, bottom)
+        AnnotationGlyph.Quotes -> drawWavyBorder(left, top, right, bottom)
+    }
+}
+
+private fun DrawScope.drawSawtoothBorder(
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+) {
+    val amplitude = 1.5.dp.toPx()
     val step = 8.dp.toPx()
+    drawSawtoothHorizontalEdge(left, right, top, -amplitude, step)
+    drawSawtoothHorizontalEdge(left, right, bottom, amplitude, step)
+    drawSawtoothVerticalEdge(top, bottom, left, -amplitude, step)
+    drawSawtoothVerticalEdge(top, bottom, right, amplitude, step)
+}
 
-    when (texture) {
-        AnnotationTexture.None -> Unit
-        AnnotationTexture.Horizontal -> {
-            var y = step / 2f
-            while (y < size.height) {
-                drawLine(
-                    color = secondaryInkColor.copy(alpha = 0.22f),
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = strokeWidth,
-                )
-                y += step
-            }
-        }
+private fun DrawScope.drawWavyBorder(
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+) {
+    val amplitude = 1.5.dp.toPx()
+    val wavelength = 10.dp.toPx()
+    drawWavyHorizontalEdge(left, right, top, -amplitude, wavelength)
+    drawWavyHorizontalEdge(left, right, bottom, amplitude, wavelength)
+    drawWavyVerticalEdge(top, bottom, left, -amplitude, wavelength)
+    drawWavyVerticalEdge(top, bottom, right, amplitude, wavelength)
+}
 
-        AnnotationTexture.RisingDiagonal -> {
-            var offset = -size.height
-            while (offset < size.width) {
-                drawLine(
-                    color = secondaryInkColor.copy(alpha = 0.2f),
-                    start = Offset(offset, size.height),
-                    end = Offset(offset + size.height, 0f),
-                    strokeWidth = strokeWidth,
-                )
-                offset += step
-            }
-        }
-
-        AnnotationTexture.FallingDiagonal -> {
-            var offset = 0f
-            while (offset < size.width + size.height) {
-                drawLine(
-                    color = secondaryInkColor.copy(alpha = 0.2f),
-                    start = Offset(offset, 0f),
-                    end = Offset(offset - size.height, size.height),
-                    strokeWidth = strokeWidth,
-                )
-                offset += step
-            }
-        }
-
-        AnnotationTexture.Dots -> {
-            val radius = 1.1.dp.toPx()
-            var x = step / 2f
-            while (x < size.width) {
-                var y = step / 2f
-                while (y < size.height) {
-                    drawCircle(
-                        color = secondaryInkColor.copy(alpha = 0.24f),
-                        radius = radius,
-                        center = Offset(x, y),
-                    )
-                    y += step
-                }
+private fun DrawScope.drawSawtoothHorizontalEdge(
+    startX: Float,
+    endX: Float,
+    y: Float,
+    offsetY: Float,
+    step: Float,
+) {
+    drawPath(
+        path = Path().apply {
+            moveTo(startX, y)
+            var x = startX
+            while (x < endX) {
+                val mid = (x + step / 2f).coerceAtMost(endX)
+                val next = (x + step).coerceAtMost(endX)
+                lineTo(mid, y + offsetY)
+                lineTo(next, y)
                 x += step
             }
-        }
+        },
+        color = inkColor,
+        style = Stroke(width = 2.dp.toPx()),
+    )
+}
 
-        AnnotationTexture.Crosshatch -> {
-            drawTexture(AnnotationTexture.RisingDiagonal)
-            drawTexture(AnnotationTexture.FallingDiagonal)
-        }
-
-        AnnotationTexture.Grid -> {
-            var x = step / 2f
-            while (x < size.width) {
-                drawLine(
-                    color = secondaryInkColor.copy(alpha = 0.18f),
-                    start = Offset(x, 0f),
-                    end = Offset(x, size.height),
-                    strokeWidth = strokeWidth,
-                )
-                x += step
-            }
-            var y = step / 2f
-            while (y < size.height) {
-                drawLine(
-                    color = secondaryInkColor.copy(alpha = 0.18f),
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = strokeWidth,
-                )
+private fun DrawScope.drawSawtoothVerticalEdge(
+    startY: Float,
+    endY: Float,
+    x: Float,
+    offsetX: Float,
+    step: Float,
+) {
+    drawPath(
+        path = Path().apply {
+            moveTo(x, startY)
+            var y = startY
+            while (y < endY) {
+                val mid = (y + step / 2f).coerceAtMost(endY)
+                val next = (y + step).coerceAtMost(endY)
+                lineTo(x + offsetX, mid)
+                lineTo(x, next)
                 y += step
             }
+        },
+        color = inkColor,
+        style = Stroke(width = 2.dp.toPx()),
+    )
+}
+
+private fun DrawScope.drawWavyHorizontalEdge(
+    startX: Float,
+    endX: Float,
+    y: Float,
+    offsetY: Float,
+    wavelength: Float,
+) {
+    drawPath(
+        path = Path().apply {
+            moveTo(startX, y)
+            var x = startX
+            while (x < endX) {
+                val mid = (x + wavelength / 2f).coerceAtMost(endX)
+                val next = (x + wavelength).coerceAtMost(endX)
+                quadraticBezierTo(mid, y + offsetY, next, y)
+                x += wavelength
+            }
+        },
+        color = inkColor,
+        style = Stroke(width = 2.dp.toPx()),
+    )
+}
+
+private fun DrawScope.drawWavyVerticalEdge(
+    startY: Float,
+    endY: Float,
+    x: Float,
+    offsetX: Float,
+    wavelength: Float,
+) {
+    drawPath(
+        path = Path().apply {
+            moveTo(x, startY)
+            var y = startY
+            while (y < endY) {
+                val mid = (y + wavelength / 2f).coerceAtMost(endY)
+                val next = (y + wavelength).coerceAtMost(endY)
+                quadraticBezierTo(x + offsetX, mid, x, next)
+                y += wavelength
+            }
+        },
+        color = inkColor,
+        style = Stroke(width = 2.dp.toPx()),
+    )
+}
+
+private fun DrawScope.drawRadialPatternBorder(
+    center: Offset,
+    baseRadius: Float,
+    amplitude: Float,
+    cycles: Int,
+    angularSamples: Int,
+    strokeWidth: Float,
+    rounded: Boolean,
+) {
+    val totalSteps = cycles * angularSamples
+    val path = Path()
+    for (step in 0..totalSteps) {
+        val angle = (2.0 * PI * step.toDouble() / totalSteps.toDouble()).toFloat()
+        val phase = (2.0 * PI * cycles.toDouble() * step.toDouble() / totalSteps.toDouble()).toFloat()
+        val radius = if (rounded) {
+            baseRadius + amplitude * sin(phase)
+        } else {
+            val normalized = ((phase / PI.toFloat()) % 2f + 2f) % 2f
+            val triangle = if (normalized < 1f) normalized else 2f - normalized
+            baseRadius + amplitude * (triangle * 2f - 1f)
+        }
+        val x = center.x + radius * cos(angle)
+        val y = center.y + radius * sin(angle)
+        if (step == 0) {
+            path.moveTo(x, y)
+        } else {
+            path.lineTo(x, y)
         }
     }
+    path.close()
+    drawPath(path = path, color = inkColor, style = Stroke(width = strokeWidth))
 }
 
 private fun DrawScope.drawGlyph(glyph: AnnotationGlyph) {
