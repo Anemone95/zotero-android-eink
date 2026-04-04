@@ -281,6 +281,7 @@ class PdfReaderViewModel @Inject constructor(
     private var cropPageJob: Job? = null
     private var savedCropConfiguration: SavedCropConfiguration? = null
     private var lastQualifiedPageIndex: Int? = null
+    private val pageChangePreviousPageVisibleHeightThreshold = 0.4f
     override fun preferredLandscapeScreenOrientation(): Int {
         return when (defaults.getPDFSettings().landscapeOrientation ?: LandscapeOrientation.REVERSE) {
             LandscapeOrientation.NORMAL -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -791,15 +792,13 @@ class PdfReaderViewModel @Inject constructor(
             return true
         }
         val pageSize = document.getPageSize(previousPageIndex)
-        val pageArea = pageSize.width * pageSize.height
-        if (pageArea <= 0f) {
+        if (pageSize.height <= 0f) {
             return true
         }
         val previousVisibleRect = currentVisiblePdfRect(previousPageIndex) ?: return true
-        val visibleArea = (previousVisibleRect.right - previousVisibleRect.left) *
-            (previousVisibleRect.top - previousVisibleRect.bottom)
-        val visibleRatio = (visibleArea / pageArea).coerceIn(0f, 1f)
-        return visibleRatio < 0.2f
+        val visibleHeight = (previousVisibleRect.top - previousVisibleRect.bottom).coerceAtLeast(0f)
+        val visibleHeightRatio = (visibleHeight / pageSize.height).coerceIn(0f, 1f)
+        return visibleHeightRatio < pageChangePreviousPageVisibleHeightThreshold
     }
 
     private fun cropPage(pageIndex: Int) {
