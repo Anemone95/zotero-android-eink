@@ -34,7 +34,7 @@ internal fun PdfReaderSharePopup(
             modifier = Modifier
                 .width(250.dp)
                 .shadow(
-                    elevation = 4.dp,
+                    elevation = if (viewModel.isEInkModeEnabled) 0.dp else 4.dp,
                     shape = RoundedCornerShape(16.dp),
                 )
                 .background(color = MaterialTheme.colorScheme.surface)

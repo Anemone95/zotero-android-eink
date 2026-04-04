@@ -36,7 +36,7 @@ internal fun PdfReaderSearchPopup(
                 .width(350.dp)
                 .height(530.dp)
                 .shadow(
-                    elevation = 4.dp,
+                    elevation = if (viewModel.isEInkModeEnabled) 0.dp else 4.dp,
                     shape = RoundedCornerShape(16.dp),
                 ),
             topBar = {},

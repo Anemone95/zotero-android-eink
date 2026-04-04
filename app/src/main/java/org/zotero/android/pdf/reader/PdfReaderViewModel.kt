@@ -176,6 +176,7 @@ import org.zotero.android.pdf.reader.sidebar.data.ThumbnailsPreviewFileCache
 import org.zotero.android.pdf.settings.data.PdfSettingsArgs
 import org.zotero.android.pdf.settings.data.PdfSettingsChangeResult
 import org.zotero.android.screens.citation.singlecitation.data.SingleCitationArgs
+import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.screens.tagpicker.data.TagPickerArgs
 import org.zotero.android.screens.tagpicker.data.TagPickerResult
 import org.zotero.android.sync.AnnotationBoundingBoxCalculator
@@ -270,8 +271,8 @@ class PdfReaderViewModel @Inject constructor(
     private var textSelectionModeActive = false
     private var scrollingDisabledForTextSelection = false
     private var activeTextSelectionController: TextSelectionController? = null
-    private var stylusSelectionAnchorRange: Range? = null
-    private var lastAppliedStylusSelectionRange: Range? = null
+    private var textSelectionAnchorRange: Range? = null
+    private var lastAppliedTextSelectionRange: Range? = null
     private var cropPageJob: Job? = null
     private var savedCropConfiguration: SavedCropConfiguration? = null
     override fun preferredLandscapeScreenOrientation(): Int {
@@ -1362,9 +1363,14 @@ class PdfReaderViewModel @Inject constructor(
             override fun onEnterTextSelectionMode(controller: com.pspdfkit.ui.special_mode.controller.TextSelectionController) {
                 textSelectionModeActive = true
                 activeTextSelectionController = controller
-                stylusSelectionAnchorRange = controller.getTextSelection()?.textRange
-                lastAppliedStylusSelectionRange = stylusSelectionAnchorRange
-                if (!scrollingDisabledForTextSelection) {
+                if (shouldUseCustomEInkTextSelection()) {
+                    textSelectionAnchorRange = controller.getTextSelection()?.textRange
+                    lastAppliedTextSelectionRange = textSelectionAnchorRange
+                } else {
+                    textSelectionAnchorRange = null
+                    lastAppliedTextSelectionRange = null
+                }
+                if (shouldUseCustomEInkTextSelection() && !scrollingDisabledForTextSelection) {
                     pdfFragment.setScrollingEnabled(false)
                     scrollingDisabledForTextSelection = true
                 }
@@ -1373,8 +1379,8 @@ class PdfReaderViewModel @Inject constructor(
             override fun onExitTextSelectionMode(controller: com.pspdfkit.ui.special_mode.controller.TextSelectionController) {
                 textSelectionModeActive = false
                 activeTextSelectionController = null
-                stylusSelectionAnchorRange = null
-                lastAppliedStylusSelectionRange = null
+                textSelectionAnchorRange = null
+                lastAppliedTextSelectionRange = null
                 if (scrollingDisabledForTextSelection) {
                     pdfFragment.setScrollingEnabled(true)
                     scrollingDisabledForTextSelection = false
@@ -1388,7 +1394,7 @@ class PdfReaderViewModel @Inject constructor(
                 return@setOnDocumentLongPressListener true
             }
             if (
-                event?.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS &&
+                shouldUseCustomEInkTextSelection() &&
                 pagePosition != null &&
                 annotation == null
             ) {
@@ -1398,8 +1404,8 @@ class PdfReaderViewModel @Inject constructor(
                     pagePosition = pagePosition,
                 )
                 if (wordRange != null) {
-                    stylusSelectionAnchorRange = wordRange
-                    lastAppliedStylusSelectionRange = wordRange
+                    textSelectionAnchorRange = wordRange
+                    lastAppliedTextSelectionRange = wordRange
                     pdfFragment.enterTextSelectionMode(pageIndex, wordRange)
                     return@setOnDocumentLongPressListener true
                 }
@@ -1522,9 +1528,12 @@ class PdfReaderViewModel @Inject constructor(
         return isLetterOrDigit() || this == '_' || this == '\'' || this == '-'
     }
 
-    override fun onStylusSelectionMove(viewX: Float, viewY: Float) {
+    override fun onTextSelectionMove(viewX: Float, viewY: Float) {
+        if (!shouldUseCustomEInkTextSelection()) {
+            return
+        }
         val controller = activeTextSelectionController ?: return
-        val anchorRange = stylusSelectionAnchorRange ?: return
+        val anchorRange = textSelectionAnchorRange ?: return
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
             return
         }
@@ -1543,24 +1552,30 @@ class PdfReaderViewModel @Inject constructor(
             anchorRange = anchorRange,
             currentRange = currentWordRange,
         )
-        if (expandedRange == lastAppliedStylusSelectionRange) {
+        if (expandedRange == lastAppliedTextSelectionRange) {
             return
         }
 
-        // PSPDFKit enters text selection mode correctly for stylus long-press,
-        // but on this e-ink device it doesn't reliably expand the selection while dragging.
-        // Update the word-based range explicitly from the current pen position instead.
+        // Update the word-based range explicitly from the current drag position so
+        // long-press selection expands predictably on this e-ink device.
         val updatedSelection = com.pspdfkit.datastructures.TextSelection.fromTextRange(
             document,
             pageIndex,
             expandedRange,
         )
         controller.setTextSelection(updatedSelection)
-        lastAppliedStylusSelectionRange = expandedRange
+        lastAppliedTextSelectionRange = expandedRange
     }
 
-    override fun onStylusSelectionEnd() {
-        lastAppliedStylusSelectionRange = activeTextSelectionController?.getTextSelection()?.textRange
+    override fun onTextSelectionEnd() {
+        if (!shouldUseCustomEInkTextSelection()) {
+            return
+        }
+        lastAppliedTextSelectionRange = activeTextSelectionController?.getTextSelection()?.textRange
+    }
+
+    private fun shouldUseCustomEInkTextSelection(): Boolean {
+        return defaults.getEInkMode() != EInkMode.Off
     }
 
     private fun expandSelectionRange(anchorRange: Range, currentRange: Range): Range {
@@ -3593,6 +3608,12 @@ class PdfReaderViewModel @Inject constructor(
 
     override val isTextSelectionModeActive: Boolean
         get() = textSelectionModeActive
+
+    override val isEInkModeEnabled: Boolean
+        get() = defaults.getEInkMode() != EInkMode.Off
+
+    override val shouldShowRotateButton: Boolean
+        get() = defaults.getEInkMode() == EInkMode.Grayscale
 
     override fun canUndo() : Boolean {
         return this.pdfFragment.undoManager.canUndo()

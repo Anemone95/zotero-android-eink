@@ -1,18 +1,26 @@
 package org.zotero.android.architecture.navigation
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.WindowManager
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.dialog
+import org.zotero.android.ZoteroApplication
+import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.uicomponents.theme.CustomTheme
 
 fun NavGraphBuilder.dialogFixedDimens(
@@ -69,6 +77,7 @@ private fun NavGraphBuilder.customDialog(
             dismissOnClickOutside = true,
         )
     ) {
+        ApplyDialogWindowSettings()
         Box(
             modifier = dialogModifier
                 .clip(shape = RoundedCornerShape(16.dp))
@@ -79,6 +88,22 @@ private fun NavGraphBuilder.customDialog(
                 )
         ) {
             content()
+        }
+    }
+}
+
+@Composable
+private fun ApplyDialogWindowSettings() {
+    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
+    val isEInkModeEnabled = ZoteroApplication.instance.defaults.getEInkMode() != EInkMode.Off
+
+    SideEffect {
+        if (isEInkModeEnabled) {
+            dialogWindow.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialogWindow.setDimAmount(0f)
+            dialogWindow.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            dialogWindow.setWindowAnimations(0)
+            dialogWindow.decorView.elevation = 0f
         }
     }
 }

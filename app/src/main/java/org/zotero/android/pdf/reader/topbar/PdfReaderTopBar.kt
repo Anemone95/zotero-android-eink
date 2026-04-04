@@ -126,35 +126,37 @@ internal fun PdfReaderTopBar(
             }
 
             Spacer(modifier = Modifier.weight(1f))
-            TooltipBox(
-                positionProvider = rememberTooltipPositionProvider(
-                    TooltipAnchorPosition.Below,
-                    4.dp
-                ),
-                tooltip = {
-                    PlainTooltip {
-                        Text(
-                            stringResource(
-                                Strings.pdf_reader_rotate_screen
+            if (viewModel.shouldShowRotateButton) {
+                TooltipBox(
+                    positionProvider = rememberTooltipPositionProvider(
+                        TooltipAnchorPosition.Below,
+                        4.dp
+                    ),
+                    tooltip = {
+                        PlainTooltip {
+                            Text(
+                                stringResource(
+                                    Strings.pdf_reader_rotate_screen
+                                )
                             )
-                        )
-                    }
-                },
-                state = rememberTooltipState()
-            ) {
-                IconWithPaddingM3(
-                    unselectedDrawableRes = Drawables.screen_rotation_24,
-                    selectedDrawableRes = Drawables.screen_rotation_24,
-                    onToggle = {
-                        activity?.requestedOrientation =
-                            if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            } else {
-                                viewModel.preferredLandscapeScreenOrientation()
-                            }
+                        }
                     },
-                    isSelected = false
-                )
+                    state = rememberTooltipState()
+                ) {
+                    IconWithPaddingM3(
+                        unselectedDrawableRes = Drawables.screen_rotation_24,
+                        selectedDrawableRes = Drawables.screen_rotation_24,
+                        onToggle = {
+                            activity?.requestedOrientation =
+                                if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                } else {
+                                    viewModel.preferredLandscapeScreenOrientation()
+                                }
+                        },
+                        isSelected = false
+                    )
+                }
             }
             TooltipBox(
                 positionProvider = rememberTooltipPositionProvider(

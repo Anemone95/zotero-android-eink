@@ -26,9 +26,8 @@ internal fun PdfReaderTabletMode(
     layoutType: CustomLayoutSize.LayoutType,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
-        AnimatedContent(targetState = viewState.showSideBar, transitionSpec = {
-            pdfReaderSidebarTransitionSpec()
-        }, label = "") { showSideBar ->
+        if (vMInterface.isEInkModeEnabled) {
+            val showSideBar = viewState.showSideBar
             if (showSideBar) {
                 Column(
                     modifier = Modifier
@@ -42,6 +41,26 @@ internal fun PdfReaderTabletMode(
                         thumbnailsLazyListState = thumbnailsLazyListState,
                         layoutType = layoutType,
                     )
+                }
+            }
+        } else {
+            AnimatedContent(targetState = viewState.showSideBar, transitionSpec = {
+                pdfReaderSidebarTransitionSpec()
+            }, label = "") { showSideBar ->
+                if (showSideBar) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(330.dp)
+                    ) {
+                        PdfReaderSidebar(
+                            vMInterface = vMInterface,
+                            viewState = viewState,
+                            annotationsLazyListState = annotationsLazyListState,
+                            thumbnailsLazyListState = thumbnailsLazyListState,
+                            layoutType = layoutType,
+                        )
+                    }
                 }
             }
         }

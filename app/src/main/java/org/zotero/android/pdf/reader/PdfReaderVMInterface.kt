@@ -16,6 +16,8 @@ interface PdfReaderVMInterface {
     val thumbnailPreviewMemoryCache: ThumbnailPreviewMemoryCache
     val activeAnnotationTool: AnnotationTool?
     val isTextSelectionModeActive: Boolean
+    val isEInkModeEnabled: Boolean
+    val shouldShowRotateButton: Boolean
     var toolColors: MutableMap<AnnotationTool, String>
 
     fun init(
@@ -63,7 +65,7 @@ interface PdfReaderVMInterface {
     fun saveCurrentCropConfiguration()
     fun cropCurrentPage()
     fun onPdfDoubleTap()
-    fun onStylusSelectionMove(viewX: Float, viewY: Float)
-    fun onStylusSelectionEnd()
+    fun onTextSelectionMove(viewX: Float, viewY: Float)
+    fun onTextSelectionEnd()
     fun preferredLandscapeScreenOrientation(): Int
 }

@@ -5,9 +5,11 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import org.zotero.android.database.objects.AnnotationsConfig
 import org.zotero.android.files.DataMarshaller
-import org.zotero.android.pdf.data.PDFSettings
+import org.zotero.android.architecture.logging.DeviceInfoProvider
 import org.zotero.android.pdf.data.LandscapeOrientation
+import org.zotero.android.pdf.data.PDFSettings
 import org.zotero.android.pdf.data.SavedCropConfiguration
+import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.screens.allitems.data.ItemsSortType
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMethod
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMode
@@ -39,6 +41,7 @@ open class Defaults @Inject constructor(
     private val tagPickerShowAutomaticTags = "tagPickerShowAutomaticTags"
     private val tagPickerDisplayAllTags = "tagPickerDisplayAllTags"
     private val isDebugLogEnabled = "isDebugLogEnabled"
+    private val eInkMode = "eInkMode"
     private val wasPspdfkitInitialized = "wasPspdfkitInitialized"
     private val pdfSettings = "pdfSettings"
     private val pdfCropConfigurationPrefix = "pdfCropConfiguration"
@@ -362,6 +365,32 @@ open class Defaults @Inject constructor(
         return sharedPreferences.getBoolean(isDebugLogEnabled, false)
     }
 
+    fun setEInkMode(newValue: EInkMode) {
+        sharedPreferences.edit { putString(eInkMode, newValue.name) }
+    }
+
+    fun getEInkMode(): EInkMode {
+        return if (sharedPreferences.contains(eInkMode)) {
+            sharedPreferences.getString(eInkMode, null)
+                ?.let { storedValue -> EInkMode.entries.firstOrNull { it.name == storedValue } }
+                ?: defaultEInkMode()
+        } else {
+            defaultEInkMode()
+        }
+    }
+
+    fun clearEInkModeOverride() {
+        sharedPreferences.edit { remove(eInkMode) }
+    }
+
+    private fun defaultEInkMode(): EInkMode {
+        return if (DeviceInfoProvider.isLikelyEInkDevice) {
+            EInkMode.Grayscale
+        } else {
+            EInkMode.Off
+        }
+    }
+
     fun setPspdfkitInitialized(newValue: Boolean) {
         sharedPreferences.edit { putBoolean(wasPspdfkitInitialized, newValue) }
     }
@@ -618,6 +647,7 @@ open class Defaults @Inject constructor(
         setShowSubcollectionItems(false)
         setApiToken(null)
         setItemsSortType(ItemsSortType.default)
+        clearEInkModeOverride()
 
         setActiveLineWidth(1f)
         setInkColorHex(AnnotationsConfig.defaultActiveColor)

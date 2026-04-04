@@ -2,6 +2,10 @@ package org.zotero.android.pdf.annotationmore
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavGraphBuilder
@@ -14,7 +18,11 @@ import org.zotero.android.pdf.annotationmore.editpage.PdfAnnotationEditPageScree
 import org.zotero.android.uicomponents.navigation.ZoteroNavHost
 
 @Composable
-internal fun PdfAnnotationMoreNavigation(args: PdfAnnotationMoreArgs, onBack: () -> Unit) {
+internal fun PdfAnnotationMoreNavigation(
+    args: PdfAnnotationMoreArgs,
+    onBack: () -> Unit,
+    disableAnimations: Boolean = false,
+) {
     val navController = rememberNavController()
     val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val navigation = remember(navController) {
@@ -31,6 +39,10 @@ internal fun PdfAnnotationMoreNavigation(args: PdfAnnotationMoreArgs, onBack: ()
     ZoteroNavHost(
         navController = navController,
         startDestination = PdfAnnotationMoreDestination.PDF_ANNOTATION_MORE_SCREEN,
+        enterTransition = { if (disableAnimations) EnterTransition.None else slideInHorizontally(initialOffsetX = { it }) },
+        exitTransition = { if (disableAnimations) ExitTransition.None else slideOutHorizontally(targetOffsetX = { -it }) },
+        popEnterTransition = { if (disableAnimations) EnterTransition.None else slideInHorizontally(initialOffsetX = { -it }) },
+        popExitTransition = { if (disableAnimations) ExitTransition.None else slideOutHorizontally(targetOffsetX = { it }) },
     ) {
         pdfAnnotationMoreNavScreens(args = args, navigation = navigation)
     }

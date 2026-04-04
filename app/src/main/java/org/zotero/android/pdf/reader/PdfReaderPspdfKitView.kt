@@ -35,10 +35,9 @@ fun PdfReaderPspdfKitView(
             val frameLayout = SingleFingerVerticalOnlyFrameLayout(context).apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
-                hasActiveAnnotationTool = { vMInterface.activeAnnotationTool != null }
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
-                onStylusSelectionMove = vMInterface::onStylusSelectionMove
-                onStylusSelectionEnd = vMInterface::onStylusSelectionEnd
+                onTextSelectionMove = vMInterface::onTextSelectionMove
+                onTextSelectionEnd = vMInterface::onTextSelectionEnd
             }
 
             val containerId = R.id.container
@@ -60,10 +59,9 @@ fun PdfReaderPspdfKitView(
             (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
-                hasActiveAnnotationTool = { vMInterface.activeAnnotationTool != null }
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
-                onStylusSelectionMove = vMInterface::onStylusSelectionMove
-                onStylusSelectionEnd = vMInterface::onStylusSelectionEnd
+                onTextSelectionMove = vMInterface::onTextSelectionMove
+                onTextSelectionEnd = vMInterface::onTextSelectionEnd
             }
         }
     )
@@ -74,13 +72,10 @@ private class SingleFingerVerticalOnlyFrameLayout(
 ) : FrameLayout(context) {
     var lockHorizontalSingleFingerPan: Boolean = false
     var onDoubleTap: (() -> Unit)? = null
-    var hasActiveAnnotationTool: () -> Boolean = { false }
     var isTextSelectionModeActive: () -> Boolean = { false }
-    var onStylusSelectionMove: ((Float, Float) -> Unit)? = null
-    var onStylusSelectionEnd: (() -> Unit)? = null
+    var onTextSelectionMove: ((Float, Float) -> Unit)? = null
+    var onTextSelectionEnd: (() -> Unit)? = null
     private var lockedX: Float? = null
-    private var lockedNonFingerX: Float? = null
-    private var lockedNonFingerY: Float? = null
     private val gestureDetector = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
@@ -92,53 +87,18 @@ private class SingleFingerVerticalOnlyFrameLayout(
     )
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (isFingerEvent(event)) {
-            gestureDetector.onTouchEvent(event)
-        }
+        gestureDetector.onTouchEvent(event)
 
-        if (event.pointerCount == 1 && event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
+        if (event.pointerCount == 1 && isTextSelectionModeActive()) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_MOVE -> {
-                    if (isTextSelectionModeActive()) {
-                        onStylusSelectionMove?.invoke(event.x, event.y)
-                    }
+                    onTextSelectionMove?.invoke(event.x, event.y)
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    onStylusSelectionEnd?.invoke()
+                    onTextSelectionEnd?.invoke()
                 }
             }
-        }
-
-        val freezeNonFingerPan = shouldFreezeNonFingerPan(event)
-
-        if (freezeNonFingerPan) {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    lockedNonFingerX = event.x
-                    lockedNonFingerY = event.y
-                }
-
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    lockedNonFingerX = null
-                    lockedNonFingerY = null
-                }
-            }
-
-            if (event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 1) {
-                val fixedX = lockedNonFingerX ?: event.x
-                val fixedY = lockedNonFingerY ?: event.y
-                val adjustedEvent = MotionEvent.obtain(event)
-                adjustedEvent.setLocation(fixedX, fixedY)
-                return try {
-                    super.dispatchTouchEvent(adjustedEvent)
-                } finally {
-                    adjustedEvent.recycle()
-                }
-            }
-        } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-            lockedNonFingerX = null
-            lockedNonFingerY = null
         }
 
         if (!lockHorizontalSingleFingerPan) {
@@ -176,24 +136,6 @@ private class SingleFingerVerticalOnlyFrameLayout(
         }
 
         return super.dispatchTouchEvent(event)
-    }
-
-    private fun isFingerEvent(event: MotionEvent): Boolean {
-        return event.pointerCount > 0 && event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER
-    }
-
-    private fun shouldFreezeNonFingerPan(event: MotionEvent): Boolean {
-        if (event.pointerCount != 1) {
-            return false
-        }
-        if (hasActiveAnnotationTool()) {
-            return false
-        }
-        return when (event.getToolType(0)) {
-            MotionEvent.TOOL_TYPE_STYLUS -> !isTextSelectionModeActive()
-            MotionEvent.TOOL_TYPE_ERASER -> true
-            else -> false
-        }
     }
 }
 

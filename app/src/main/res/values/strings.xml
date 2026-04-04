@@ -78,6 +78,10 @@
     <string name="pdf_settings_landscape_orientation_title">Landscape Orientation</string>
     <string name="pdf_settings_landscape_orientation_normal">Normal</string>
     <string name="pdf_settings_landscape_orientation_reverse">Reverse</string>
+    <string name="settings_e_ink_mode">E-Ink Mode</string>
+    <string name="settings_e_ink_mode_colorful">Colorful</string>
+    <string name="settings_e_ink_mode_grayscale">Grayscale</string>
+    <string name="settings_e_ink_mode_off">Off</string>
 
     <string name="items_generating_cit">Generating Citation</string>
 

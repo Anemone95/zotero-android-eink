@@ -38,12 +38,8 @@ internal fun PdfReaderPhoneMode(
             viewState = viewState,
             vMInterface = vMInterface
         )
-        AnimatedContent(
-            targetState = viewState.showSideBar,
-            transitionSpec = {
-                pdfReaderSidebarTransitionSpec()
-            }, label = ""
-        ) { showSideBar ->
+        if (vMInterface.isEInkModeEnabled) {
+            val showSideBar = viewState.showSideBar
             if (showSideBar) {
                 Column(
                     modifier = Modifier
@@ -62,10 +58,35 @@ internal fun PdfReaderPhoneMode(
                     )
                 }
             }
+        } else {
+            AnimatedContent(
+                targetState = viewState.showSideBar,
+                transitionSpec = {
+                    pdfReaderSidebarTransitionSpec()
+                }, label = ""
+            ) { showSideBar ->
+                if (showSideBar) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures {
+                                    //Prevent tap to be propagated to composables behind this screen.
+                                }
+                            }) {
+                        PdfReaderSidebar(
+                            viewState = viewState,
+                            vMInterface = vMInterface,
+                            annotationsLazyListState = annotationsLazyListState,
+                            thumbnailsLazyListState = thumbnailsLazyListState,
+                            layoutType = layoutType,
+                        )
+                    }
+                }
+            }
         }
-        AnimatedContent(targetState = viewState.showPdfSearch, transitionSpec = {
-            pdfReaderPdfSearchTransitionSpec()
-        }, label = "") { showScreen ->
+        if (vMInterface.isEInkModeEnabled) {
+            val showScreen = viewState.showPdfSearch
             if (showScreen) {
                 Column(
                     modifier = Modifier
@@ -77,6 +98,24 @@ internal fun PdfReaderPhoneMode(
                         viewModel = pdfReaderSearchViewModel,
                         viewState = pdfReaderSearchViewState,
                     )
+                }
+            }
+        } else {
+            AnimatedContent(targetState = viewState.showPdfSearch, transitionSpec = {
+                pdfReaderPdfSearchTransitionSpec()
+            }, label = "") { showScreen ->
+                if (showScreen) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        PdfReaderSearchScreen(
+                            onBack = vMInterface::hidePdfSearch,
+                            viewModel = pdfReaderSearchViewModel,
+                            viewState = pdfReaderSearchViewState,
+                        )
+                    }
                 }
             }
         }

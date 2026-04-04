@@ -1,6 +1,7 @@
 package org.zotero.android.architecture.logging
 
 import android.os.Build
+import java.util.Locale
 import org.zotero.android.BuildConfig
 
 object DeviceInfoProvider {
@@ -36,4 +37,31 @@ object DeviceInfoProvider {
     val userAgentString: String get() {
         return "Zotero/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.SDK_INT})"
     }
+
+    val isLikelyEInkDevice: Boolean
+        get() {
+            val fingerprint = listOf(
+                Build.MANUFACTURER,
+                Build.BRAND,
+                Build.MODEL,
+                Build.DEVICE,
+                Build.PRODUCT,
+            )
+                .joinToString(separator = " ")
+                .lowercase(Locale.US)
+
+            return knownEInkMarkers.any(fingerprint::contains)
+        }
+
+    private val knownEInkMarkers = listOf(
+        "viwoods",
+        "onyx",
+        "boox",
+        "remarkable",
+        "hisense",
+        "bigme",
+        "moaan",
+        "meebook",
+        "inkbook",
+    )
 }

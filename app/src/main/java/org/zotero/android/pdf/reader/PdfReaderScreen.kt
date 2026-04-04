@@ -111,7 +111,11 @@ internal fun PdfReaderScreen(
                         }
                     }
                     if (consumedEffect.scrollToIndex != -1) {
-                        annotationsLazyListState.animateScrollToItem(index = consumedEffect.scrollToIndex)
+                        if (viewModel.isEInkModeEnabled) {
+                            annotationsLazyListState.scrollToItem(index = consumedEffect.scrollToIndex)
+                        } else {
+                            annotationsLazyListState.animateScrollToItem(index = consumedEffect.scrollToIndex)
+                        }
                     }
                 }
 
@@ -119,7 +123,11 @@ internal fun PdfReaderScreen(
                     val visibleItemsInfo = thumbnailsLazyListState.layoutInfo.visibleItemsInfo
                     val scrollToIndex = consumedEffect.scrollToIndex
                     if (visibleItemsInfo.isNotEmpty() && (scrollToIndex < visibleItemsInfo.first().index || scrollToIndex > visibleItemsInfo.last().index)) {
-                        thumbnailsLazyListState.animateScrollToItem(index = scrollToIndex)
+                        if (viewModel.isEInkModeEnabled) {
+                            thumbnailsLazyListState.scrollToItem(index = scrollToIndex)
+                        } else {
+                            thumbnailsLazyListState.animateScrollToItem(index = scrollToIndex)
+                        }
                     }
                 }
 
@@ -184,10 +192,8 @@ internal fun PdfReaderScreen(
                 false
             },
             topBar = {
-                AnimatedContent(
-                    targetState = viewState.isTopBarVisible,
-                    label = ""
-                ) { isTopBarVisible ->
+                if (viewModel.isEInkModeEnabled) {
+                    val isTopBarVisible = viewState.isTopBarVisible
                     if (isTopBarVisible) {
                         if (viewState.showPdfSearch && !layoutType.isTablet()) {
                             PdfReaderSearchTopBar(
@@ -212,6 +218,38 @@ internal fun PdfReaderScreen(
                                 pdfReaderSearchViewState = pdfReaderSearchViewState,
                                 pdfReaderSearchViewModel = pdfReaderSearchViewModel,
                             )
+                        }
+                    }
+                } else {
+                    AnimatedContent(
+                        targetState = viewState.isTopBarVisible,
+                        label = ""
+                    ) { isTopBarVisible ->
+                        if (isTopBarVisible) {
+                            if (viewState.showPdfSearch && !layoutType.isTablet()) {
+                                PdfReaderSearchTopBar(
+                                    viewState = pdfReaderSearchViewState,
+                                    viewModel = pdfReaderSearchViewModel,
+                                    togglePdfSearch = viewModel::togglePdfSearch
+                                )
+                            } else {
+                                PdfReaderTopBar(
+                                    onBack = navigateBackToMain,
+                                    onShowHideSideBar = viewModel::toggleSideBar,
+                                    onShareButtonTapped = viewModel::onShareButtonTapped,
+                                    toPdfSettings = viewModel::navigateToPdfSettings,
+                                    toPdfPlainReader = viewModel::navigateToPlainReader,
+                                    showPdfSearch = viewState.showPdfSearch,
+                                    toggleToolbarButton = viewModel::toggleToolbarButton,
+                                    isToolbarButtonSelected = viewState.showCreationToolbar,
+                                    showSideBar = viewState.showSideBar,
+                                    onShowHidePdfSearch = viewModel::togglePdfSearch,
+                                    viewModel = viewModel,
+                                    viewState = viewState,
+                                    pdfReaderSearchViewState = pdfReaderSearchViewState,
+                                    pdfReaderSearchViewModel = pdfReaderSearchViewModel,
+                                )
+                            }
                         }
                     }
                 }
