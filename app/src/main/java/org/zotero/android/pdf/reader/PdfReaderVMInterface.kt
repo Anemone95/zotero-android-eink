@@ -64,7 +64,7 @@ interface PdfReaderVMInterface {
     fun hideCopyCitation()
     fun saveCurrentCropConfiguration()
     fun cropCurrentPage()
-    fun onPdfDoubleTap()
+    fun onPdfDoubleTap(): Boolean
     fun onTextSelectionMove(viewX: Float, viewY: Float)
     fun onTextSelectionEnd()
     fun preferredLandscapeScreenOrientation(): Int
