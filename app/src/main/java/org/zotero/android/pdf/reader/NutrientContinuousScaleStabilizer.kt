@@ -9,8 +9,18 @@ import java.lang.reflect.Method
 
 internal object NutrientContinuousScaleStabilizer {
 
-    private const val DOCUMENT_VIEW_CLASS = "androidx.compose.runtime.views.document.DocumentView"
-    private const val CONTINUOUS_LAYOUT_MANAGER_CLASS = "androidx.compose.runtime.f8"
+    private val documentViewClassNames = listOf(
+        "com.pspdfkit.internal.views.document.DocumentView",
+        "androidx.compose.runtime.views.document.DocumentView",
+    )
+    private val pageViewClassNames = listOf(
+        "com.pspdfkit.internal.vn",
+        "androidx.compose.runtime.vn",
+    )
+    private val continuousLayoutManagerClassNames = listOf(
+        "com.pspdfkit.internal.f8",
+        "androidx.compose.runtime.f8",
+    )
 
     private val reflection by lazy(LazyThreadSafetyMode.NONE) { ReflectionCache.create() }
 
@@ -104,9 +114,9 @@ internal object NutrientContinuousScaleStabilizer {
     ) {
         companion object {
             fun create(): ReflectionCache {
-                val documentViewClass = Class.forName(DOCUMENT_VIEW_CLASS)
-                val layoutManagerClass = Class.forName(CONTINUOUS_LAYOUT_MANAGER_CLASS)
-                val pageViewClass = findMethod(layoutManagerClass, "a", 1).parameterTypes[0]
+                val documentViewClass = findFirstClass(documentViewClassNames)
+                val pageViewClass = findFirstClass(pageViewClassNames)
+                val layoutManagerClass = findFirstClass(continuousLayoutManagerClassNames)
                 return ReflectionCache(
                     documentViewClass = documentViewClass,
                     continuousLayoutManagerClass = layoutManagerClass,
@@ -144,6 +154,18 @@ internal object NutrientContinuousScaleStabilizer {
                     ),
                     pageViewUpdateVisibilityMethod = findMethod(pageViewClass, "p"),
                 )
+            }
+
+            private fun findFirstClass(classNames: List<String>): Class<*> {
+                var lastError: Throwable? = null
+                classNames.forEach { className ->
+                    try {
+                        return Class.forName(className)
+                    } catch (t: Throwable) {
+                        lastError = t
+                    }
+                }
+                throw ClassNotFoundException(classNames.joinToString(), lastError)
             }
 
             private fun findField(clazz: Class<*>, name: String): Field {

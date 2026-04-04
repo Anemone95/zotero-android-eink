@@ -280,6 +280,7 @@ class PdfReaderViewModel @Inject constructor(
     private var lastAppliedTextSelectionRange: Range? = null
     private var cropPageJob: Job? = null
     private var savedCropConfiguration: SavedCropConfiguration? = null
+    private var lastQualifiedPageIndex: Int? = null
     override fun preferredLandscapeScreenOrientation(): Int {
         return when (defaults.getPDFSettings().landscapeOrientation ?: LandscapeOrientation.REVERSE) {
             LandscapeOrientation.NORMAL -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -451,9 +452,11 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     class CustomPdfUiFragment: PdfUiFragment() {
+        var onRawPageChanged: ((Int) -> Unit)? = null
+
         override fun onPageChanged(document: PdfDocument, pageIndex: Int) {
             super.onPageChanged(document, pageIndex)
-            EventBus.getDefault().post(OnPageChangedEvent(pageIndex))
+            onRawPageChanged?.invoke(pageIndex)
         }
     }
 
@@ -505,6 +508,8 @@ class PdfReaderViewModel @Inject constructor(
                 .fragmentClass(CustomPdfUiFragment::class.java)
                 .configuration(configuration)
                 .build()
+            (this@PdfReaderViewModel.pdfUiFragment as? CustomPdfUiFragment)?.onRawPageChanged =
+                this@PdfReaderViewModel::onRawPageChanged
             this@PdfReaderViewModel.pdfUiFragment.lifecycle.addObserver(object: DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
                     this@PdfReaderViewModel.pdfFragment = pdfUiFragment.pdfFragment!!
@@ -674,6 +679,7 @@ class PdfReaderViewModel @Inject constructor(
 
     private suspend fun onDocumentLoaded(document: PdfDocument) {
         this.document = document
+        lastQualifiedPageIndex = pdfUiFragment.pageIndex.takeIf { it >= 0 }
         annotationBoundingBoxConverter = AnnotationBoundingBoxConverter(document)
         loadRawDocument()
         loadDocumentData()
@@ -760,11 +766,40 @@ class PdfReaderViewModel @Inject constructor(
                 NutrientContinuousScaleStabilizer.stabilize(pdfFragment)
             }.onFailure {
                 Timber.d(it, "Continuous scale stabilization failed")
+                Timber.d(it.stackTraceToString())
             }
             Unit
         }
         rootView.post(stabilize)
         rootView.postDelayed(stabilize, 64L)
+    }
+
+    private fun onRawPageChanged(pageIndex: Int) {
+        if (!shouldAcceptPageChange(pageIndex)) {
+            return
+        }
+        lastQualifiedPageIndex = pageIndex
+        EventBus.getDefault().post(OnPageChangedEvent(pageIndex))
+    }
+
+    private fun shouldAcceptPageChange(newPageIndex: Int): Boolean {
+        val previousPageIndex = lastQualifiedPageIndex ?: return true
+        if (previousPageIndex == newPageIndex) {
+            return false
+        }
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return true
+        }
+        val pageSize = document.getPageSize(previousPageIndex)
+        val pageArea = pageSize.width * pageSize.height
+        if (pageArea <= 0f) {
+            return true
+        }
+        val previousVisibleRect = currentVisiblePdfRect(previousPageIndex) ?: return true
+        val visibleArea = (previousVisibleRect.right - previousVisibleRect.left) *
+            (previousVisibleRect.top - previousVisibleRect.bottom)
+        val visibleRatio = (visibleArea / pageArea).coerceIn(0f, 1f)
+        return visibleRatio < 0.2f
     }
 
     private fun cropPage(pageIndex: Int) {
