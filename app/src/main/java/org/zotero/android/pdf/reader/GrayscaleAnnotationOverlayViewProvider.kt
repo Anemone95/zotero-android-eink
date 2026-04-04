@@ -3,9 +3,11 @@ package org.zotero.android.pdf.reader
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathDashPathEffect
 import android.graphics.RectF
 import android.view.View
 import androidx.core.graphics.PathParser
@@ -68,6 +70,23 @@ private class GrayscaleMarkupOverlayView(
         color = Color.argb(220, 32, 32, 32)
         style = Paint.Style.STROKE
     }
+    private val highlightOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(210, 32, 32, 32)
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    private val borderRectPath = Path()
+    private val sawtoothStamp = Path().apply {
+        moveTo(0f, 0f)
+        lineTo(5f, -5f)
+        lineTo(10f, 0f)
+    }
+    private val horizontalStamp = Path().apply {
+        addRect(0f, -0.9f, 8f, 0.9f, Path.Direction.CW)
+    }
+    private val dotStamp = Path().apply {
+        addCircle(0f, 0f, 1.5f, Path.Direction.CW)
+    }
 
     init {
         layoutParams = OverlayLayoutParams(overlayBounds, OverlayLayoutParams.SizingMode.SCALING)
@@ -83,8 +102,148 @@ private class GrayscaleMarkupOverlayView(
             ?.takeIf { it.isNotEmpty() }
             ?.map(::normalizedRect)
             ?: listOf(baseBounds)
+        val localRects = rects.map { it.toLocalRect() }
 
-        drawBadge(canvas, rects.first().toLocalRect())
+        if (annotation is HighlightAnnotation) {
+            localRects.forEach { drawHighlightBorder(canvas, it) }
+        }
+
+        drawBadge(canvas, localRects.first())
+    }
+
+    private fun drawHighlightBorder(canvas: Canvas, rect: RectF) {
+        val borderRect = RectF(
+            rect.left + 1f,
+            rect.top + 1f,
+            rect.right - 1f,
+            rect.bottom - 1f,
+        )
+        if (borderRect.width() <= 0f || borderRect.height() <= 0f) {
+            return
+        }
+        when (style.glyph) {
+            AnnotationGlyph.Marker,
+            AnnotationGlyph.Unknown,
+            -> return
+
+            AnnotationGlyph.Info -> drawSawtoothBorder(canvas, borderRect)
+
+            AnnotationGlyph.Question -> drawSolidBorder(canvas, borderRect)
+
+            AnnotationGlyph.Exclamation -> drawPatternBorder(
+                canvas = canvas,
+                rect = borderRect,
+                pathEffect = PathDashPathEffect(dotStamp, 7f, 0f, PathDashPathEffect.Style.TRANSLATE),
+            )
+
+            AnnotationGlyph.Quotes -> drawWavyBorder(canvas, borderRect)
+
+            AnnotationGlyph.Language -> drawPatternBorder(
+                canvas = canvas,
+                rect = borderRect,
+                pathEffect = DashPathEffect(floatArrayOf(8f, 6f), 0f),
+            )
+        }
+    }
+
+    private fun drawPatternBorder(
+        canvas: Canvas,
+        rect: RectF,
+        pathEffect: android.graphics.PathEffect,
+    ) {
+        borderRectPath.reset()
+        borderRectPath.addRect(rect, Path.Direction.CW)
+        highlightOutlinePaint.pathEffect = pathEffect
+        canvas.drawPath(borderRectPath, highlightOutlinePaint)
+        highlightOutlinePaint.pathEffect = null
+    }
+
+    private fun drawSolidBorder(canvas: Canvas, rect: RectF) {
+        canvas.drawRect(rect, highlightOutlinePaint)
+    }
+
+    private fun drawSawtoothBorder(canvas: Canvas, rect: RectF) {
+        highlightOutlinePaint.pathEffect = PathDashPathEffect(sawtoothStamp, 10f, 0f, PathDashPathEffect.Style.ROTATE)
+        canvas.drawPath(
+            Path().apply {
+                moveTo(rect.left, rect.top - 1f)
+                lineTo(rect.right, rect.top - 1f)
+            },
+            highlightOutlinePaint,
+        )
+        canvas.drawPath(
+            Path().apply {
+                moveTo(rect.left, rect.bottom + 1f)
+                lineTo(rect.right, rect.bottom + 1f)
+            },
+            highlightOutlinePaint,
+        )
+        canvas.drawPath(
+            Path().apply {
+                moveTo(rect.left, rect.top)
+                lineTo(rect.left, rect.bottom)
+            },
+            highlightOutlinePaint,
+        )
+        canvas.drawPath(
+            Path().apply {
+                moveTo(rect.right, rect.top)
+                lineTo(rect.right, rect.bottom)
+            },
+            highlightOutlinePaint,
+        )
+        highlightOutlinePaint.pathEffect = null
+    }
+
+    private fun drawWavyBorder(canvas: Canvas, rect: RectF) {
+        val amplitude = 4.5f
+        val wavelength = 14f
+        drawWavyHorizontalEdge(canvas, rect.left, rect.right, rect.top, amplitude, wavelength)
+        drawWavyHorizontalEdge(canvas, rect.left, rect.right, rect.bottom, amplitude, wavelength)
+        drawWavyVerticalEdge(canvas, rect.top, rect.bottom, rect.left, amplitude, wavelength)
+        drawWavyVerticalEdge(canvas, rect.top, rect.bottom, rect.right, amplitude, wavelength)
+    }
+
+    private fun drawWavyHorizontalEdge(
+        canvas: Canvas,
+        startX: Float,
+        endX: Float,
+        y: Float,
+        amplitude: Float,
+        wavelength: Float,
+    ) {
+        val path = Path().apply {
+            moveTo(startX, y)
+            var x = startX
+            while (x < endX) {
+                val mid = (x + wavelength / 2f).coerceAtMost(endX)
+                val next = (x + wavelength).coerceAtMost(endX)
+                quadTo(mid, y - amplitude, next, y)
+                x += wavelength
+            }
+        }
+        canvas.drawPath(path, highlightOutlinePaint)
+    }
+
+    private fun drawWavyVerticalEdge(
+        canvas: Canvas,
+        startY: Float,
+        endY: Float,
+        x: Float,
+        amplitude: Float,
+        wavelength: Float,
+    ) {
+        val path = Path().apply {
+            moveTo(x, startY)
+            var y = startY
+            while (y < endY) {
+                val mid = (y + wavelength / 2f).coerceAtMost(endY)
+                val next = (y + wavelength).coerceAtMost(endY)
+                quadTo(x - amplitude, mid, x, next)
+                y += wavelength
+            }
+        }
+        canvas.drawPath(path, highlightOutlinePaint)
     }
 
     private fun drawBadge(
@@ -94,7 +253,7 @@ private class GrayscaleMarkupOverlayView(
         val badgeSize = firstRect.height().coerceIn(12f, 18f)
         val badgeLeft = (firstRect.left - badgeSize * 0.5f)
             .coerceAtMost((width - badgeSize).coerceAtLeast(0f))
-        val badgeTop = (firstRect.top - badgeSize * 0.5f)
+        val badgeTop = (firstRect.top - badgeSize * 1.0f)
             .coerceIn(0f, (height - badgeSize).coerceAtLeast(0f))
         val badgeRect = RectF(
             badgeLeft,
