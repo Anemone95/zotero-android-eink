@@ -212,6 +212,30 @@ internal fun PdfReaderTopBar(
                     4.dp
                 ),
                 tooltip = {
+                    PlainTooltip {
+                        Text(
+                            stringResource(
+                                Strings.pdf_reader_fit_width
+                            )
+                        )
+                    }
+                },
+                state = rememberTooltipState()
+            ) {
+                IconButton(onClick = viewModel::zoomCurrentPageToFitWidth) {
+                    Icon(
+                        painter = painterResource(Drawables.fit_width_24),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(
+                    TooltipAnchorPosition.Below,
+                    4.dp
+                ),
+                tooltip = {
                     PlainTooltip() {
                         Text(
                             stringResource(

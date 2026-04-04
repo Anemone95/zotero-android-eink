@@ -36,6 +36,7 @@ fun PdfReaderPspdfKitView(
             val frameLayout = SingleFingerVerticalOnlyFrameLayout(context).apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
+                shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
                 onScaleEnd = vMInterface::onPdfScaleEnd
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
@@ -61,6 +62,7 @@ fun PdfReaderPspdfKitView(
             (frameLayout as? SingleFingerVerticalOnlyFrameLayout)?.apply {
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
+                shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
                 onScaleEnd = vMInterface::onPdfScaleEnd
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
@@ -75,11 +77,13 @@ private class SingleFingerVerticalOnlyFrameLayout(
 ) : FrameLayout(context) {
     var lockHorizontalSingleFingerPan: Boolean = false
     var onDoubleTap: (() -> Boolean)? = null
+    var shouldBlockCropShrinkGesture: () -> Boolean = { false }
     var onScaleEnd: (() -> Unit)? = null
     var isTextSelectionModeActive: () -> Boolean = { false }
     var onTextSelectionMove: ((Float, Float) -> Unit)? = null
     var onTextSelectionEnd: (() -> Unit)? = null
     private var lockedX: Float? = null
+    private var blockCurrentScaleGesture = false
     private val gestureDetector = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
@@ -94,18 +98,28 @@ private class SingleFingerVerticalOnlyFrameLayout(
             private var inScaleGesture = false
 
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                blockCurrentScaleGesture = false
                 inScaleGesture = true
                 return true
             }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                return true
+                if (blockCurrentScaleGesture) {
+                    return true
+                }
+                // Stop further pinch-shrink events once the cropped page is already near full-page width.
+                if (detector.scaleFactor < 1f && shouldBlockCropShrinkGesture()) {
+                    blockCurrentScaleGesture = true
+                    return true
+                }
+                return false
             }
 
             override fun onScaleEnd(detector: ScaleGestureDetector) {
                 if (inScaleGesture) {
                     this@SingleFingerVerticalOnlyFrameLayout.onScaleEnd?.invoke()
                 }
+                blockCurrentScaleGesture = false
                 inScaleGesture = false
             }
         }
@@ -113,6 +127,19 @@ private class SingleFingerVerticalOnlyFrameLayout(
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (gestureDetector.onTouchEvent(event)) {
+            return true
+        }
+
+        scaleGestureDetector.onTouchEvent(event)
+
+        if (event.actionMasked == MotionEvent.ACTION_UP ||
+            event.actionMasked == MotionEvent.ACTION_CANCEL ||
+            (event.actionMasked == MotionEvent.ACTION_POINTER_UP && event.pointerCount <= 2)
+        ) {
+            blockCurrentScaleGesture = false
+        }
+
+        if (blockCurrentScaleGesture && event.pointerCount > 1) {
             return true
         }
 
@@ -133,7 +160,6 @@ private class SingleFingerVerticalOnlyFrameLayout(
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 lockedX = null
             }
-            scaleGestureDetector.onTouchEvent(event)
             return handled
         }
 
@@ -160,13 +186,11 @@ private class SingleFingerVerticalOnlyFrameLayout(
             return try {
                 super.dispatchTouchEvent(adjustedEvent)
             } finally {
-                scaleGestureDetector.onTouchEvent(event)
                 adjustedEvent.recycle()
             }
         }
 
         val handled = super.dispatchTouchEvent(event)
-        scaleGestureDetector.onTouchEvent(event)
         return handled
     }
 }

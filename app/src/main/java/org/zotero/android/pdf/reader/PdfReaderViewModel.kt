@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Handler
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Toast
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -756,6 +757,36 @@ class PdfReaderViewModel @Inject constructor(
         cropPage(pdfUiFragment.pageIndex)
     }
 
+    override fun zoomCurrentPageToFitWidth() {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        Timber.d("Fit-width button tapped: currentPage=%s", pdfUiFragment.pageIndex)
+        applyFitWidthZoomToCurrentPage(
+            pageIndex = pdfUiFragment.pageIndex,
+            returnToCropWhenAlreadyFitWidth = true,
+        )
+    }
+
+    override fun shouldBlockCropShrinkGesture(): Boolean {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return false
+        }
+        if (defaults.getPDFSettings().pageFitting != PageFitting.CROP) {
+            return false
+        }
+        // Once the crop view is already close to full-page width, shrinking further is not useful.
+        if (!isCurrentPageVisibleWidthNearFullPageWidth(pdfUiFragment.pageIndex)) {
+            return false
+        }
+        Toast.makeText(
+            context,
+            context.getString(org.zotero.android.R.string.pdf_reader_fit_width_suggestion),
+            Toast.LENGTH_SHORT,
+        ).show()
+        return true
+    }
+
     override fun saveCurrentCropConfiguration() {
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
             return
@@ -1092,6 +1123,163 @@ class PdfReaderViewModel @Inject constructor(
             return null
         }
         return rect
+    }
+
+    private fun isCurrentPageVisibleWidthNearFullPageWidth(pageIndex: Int): Boolean {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return false
+        }
+        val visibleRect = currentVisiblePdfRect(pageIndex) ?: return false
+        val pageSize = document.getPageSize(pageIndex)
+        if (pageSize.width <= 0f) {
+            return false
+        }
+        val currentVisibleWidth = visibleRect.right - visibleRect.left
+        return currentVisibleWidth >= pageSize.width * 0.9f
+    }
+
+    private fun applyFitWidthZoomToCurrentPage(
+        pageIndex: Int,
+        returnToCropWhenAlreadyFitWidth: Boolean,
+        retriesRemaining: Int = 2,
+    ) {
+        if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
+            return
+        }
+        if (pdfUiFragment.pageIndex != pageIndex) {
+            return
+        }
+        val visibleRect = currentVisiblePdfRect(pageIndex)
+        if (visibleRect == null) {
+            if (retriesRemaining > 0) {
+                handler.postDelayed(
+                    {
+                        applyFitWidthZoomToCurrentPage(
+                            pageIndex = pageIndex,
+                            returnToCropWhenAlreadyFitWidth = returnToCropWhenAlreadyFitWidth,
+                            retriesRemaining = retriesRemaining - 1,
+                        )
+                    },
+                    32L,
+                )
+            }
+            return
+        }
+        val targetRect = buildFitWidthRectFromVisibleRect(
+            document = document,
+            pageIndex = pageIndex,
+            visibleRect = visibleRect,
+        ) ?: return
+        if (isAlreadyAtFitWidthZoom(pageIndex = pageIndex, visibleRect = visibleRect, targetRect = targetRect)) {
+            if (!returnToCropWhenAlreadyFitWidth) {
+                return
+            }
+            if (savedCropConfiguration != null) {
+                applySavedCropConfiguration(pageIndex)
+            } else {
+                cropPage(pageIndex)
+            }
+            return
+        }
+        pdfFragment.zoomTo(targetRect, pageIndex, 0L)
+    }
+
+    private fun buildFitWidthRectFromVisibleRect(
+        document: PdfDocument,
+        pageIndex: Int,
+        visibleRect: RectF,
+    ): RectF? {
+        val pageSize = document.getPageSize(pageIndex)
+        if (pageSize.width <= 0f || pageSize.height <= 0f) {
+            return null
+        }
+
+        val currentVisibleWidth = visibleRect.right - visibleRect.left
+        val currentVisibleHeight = visibleRect.top - visibleRect.bottom
+        if (currentVisibleWidth <= 0f || currentVisibleHeight <= 0f) {
+            return null
+        }
+        val viewportWidthPx = pdfFragment.view?.width?.takeIf { it > 20 } ?: return null
+        val horizontalMarginPx = 10f
+        val pdfUnitsPerPx = currentVisibleWidth / viewportWidthPx.toFloat()
+        // Expand to the full PDF page width plus a small screen-space gutter so the page edge stays visible.
+        val targetVisibleWidth = pageSize.width + (horizontalMarginPx * 2f * pdfUnitsPerPx)
+        val currentCenterX = (visibleRect.left + visibleRect.right) / 2f
+        val currentCenterY = (visibleRect.top + visibleRect.bottom) / 2f
+
+        val targetHeight = (currentVisibleHeight * (targetVisibleWidth / currentVisibleWidth))
+            .coerceAtLeast(pageSize.height * 0.05f)
+        if (targetHeight >= pageSize.height) {
+            val horizontalInset = ((targetVisibleWidth - pageSize.width) / 2f).coerceAtLeast(0f)
+            var targetLeft = currentCenterX - (targetVisibleWidth / 2f)
+            var targetRight = currentCenterX + (targetVisibleWidth / 2f)
+            val minLeft = -horizontalInset
+            val maxRight = pageSize.width + horizontalInset
+            if (targetLeft < minLeft) {
+                val overflow = minLeft - targetLeft
+                targetLeft = minLeft
+                targetRight += overflow
+            }
+            if (targetRight > maxRight) {
+                val overflow = targetRight - maxRight
+                targetRight = maxRight
+                targetLeft -= overflow
+            }
+            return RectF(targetLeft, pageSize.height, targetRight, 0f)
+        }
+
+        var targetLeft = currentCenterX - (targetVisibleWidth / 2f)
+        var targetRight = currentCenterX + (targetVisibleWidth / 2f)
+        val horizontalInset = ((targetVisibleWidth - pageSize.width) / 2f).coerceAtLeast(0f)
+        val minLeft = -horizontalInset
+        val maxRight = pageSize.width + horizontalInset
+        if (targetLeft < minLeft) {
+            val overflow = minLeft - targetLeft
+            targetLeft = minLeft
+            targetRight += overflow
+        }
+        if (targetRight > maxRight) {
+            val overflow = targetRight - maxRight
+            targetRight = maxRight
+            targetLeft -= overflow
+        }
+
+        var targetTop = currentCenterY + (targetHeight / 2f)
+        var targetBottom = currentCenterY - (targetHeight / 2f)
+        if (targetTop > pageSize.height) {
+            val overflow = targetTop - pageSize.height
+            targetTop = pageSize.height
+            targetBottom -= overflow
+        }
+        if (targetBottom < 0f) {
+            val overflow = -targetBottom
+            targetBottom = 0f
+            targetTop += overflow
+        }
+
+        targetTop = targetTop.coerceIn(0f, pageSize.height)
+        targetBottom = targetBottom.coerceIn(0f, pageSize.height)
+        if (targetTop <= targetBottom || targetRight <= targetLeft) {
+            return null
+        }
+        return RectF(targetLeft, targetTop, targetRight, targetBottom)
+    }
+
+    private fun isAlreadyAtFitWidthZoom(
+        pageIndex: Int,
+        visibleRect: RectF,
+        targetRect: RectF,
+    ): Boolean {
+        if (pdfUiFragment.pageIndex != pageIndex) {
+            return false
+        }
+        val currentVisibleWidth = visibleRect.right - visibleRect.left
+        val targetVisibleWidth = targetRect.right - targetRect.left
+        if (currentVisibleWidth <= 0f || targetVisibleWidth <= 0f) {
+            return false
+        }
+        val widthTolerance = maxOf(targetVisibleWidth * 0.03f, 4f)
+        return abs(currentVisibleWidth - targetVisibleWidth) <= widthTolerance
     }
 
     private fun buildHorizontalCropRect(

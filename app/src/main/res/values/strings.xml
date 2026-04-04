@@ -71,6 +71,8 @@
     <string name="pdf_reader_rotate_screen">Rotate Screen</string>
     <string name="pdf_reader_manual_crop_page">Manual Crop</string>
     <string name="pdf_reader_crop_page">Crop Page</string>
+    <string name="pdf_reader_fit_width">Fit Width</string>
+    <string name="pdf_reader_fit_width_suggestion">Cannot zoom out further. Use the Fit Width button.</string>
     <string name="pdf_settings_page_fitting_crop">Crop</string>
     <string name="pdf_settings_single_finger_horizontal_page_movement_title">Allow Single-Finger Horizontal Page Movement</string>
     <string name="pdf_settings_single_finger_horizontal_page_movement_allow">Allow</string>

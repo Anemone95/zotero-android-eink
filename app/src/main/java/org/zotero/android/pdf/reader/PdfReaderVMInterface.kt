@@ -65,6 +65,8 @@ interface PdfReaderVMInterface {
     fun hideCopyCitation()
     fun saveCurrentCropConfiguration()
     fun cropCurrentPage()
+    fun zoomCurrentPageToFitWidth()
+    fun shouldBlockCropShrinkGesture(): Boolean
     fun onPdfDoubleTap(): Boolean
     fun onPdfScaleEnd()
     fun onTextSelectionMove(viewX: Float, viewY: Float)
