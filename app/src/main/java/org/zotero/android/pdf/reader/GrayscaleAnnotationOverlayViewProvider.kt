@@ -78,8 +78,8 @@ private class GrayscaleMarkupOverlayView(
     private val borderRectPath = Path()
     private val sawtoothStamp = Path().apply {
         moveTo(0f, 0f)
-        lineTo(5f, -5f)
-        lineTo(10f, 0f)
+        lineTo(6f, -7f)
+        lineTo(12f, 0f)
     }
     private val horizontalStamp = Path().apply {
         addRect(0f, -0.9f, 8f, 0.9f, Path.Direction.CW)
@@ -163,7 +163,7 @@ private class GrayscaleMarkupOverlayView(
     }
 
     private fun drawSawtoothBorder(canvas: Canvas, rect: RectF) {
-        highlightOutlinePaint.pathEffect = PathDashPathEffect(sawtoothStamp, 10f, 0f, PathDashPathEffect.Style.ROTATE)
+        highlightOutlinePaint.pathEffect = PathDashPathEffect(sawtoothStamp, 16f, 0f, PathDashPathEffect.Style.ROTATE)
         canvas.drawPath(
             Path().apply {
                 moveTo(rect.left, rect.top - 1f)
@@ -425,9 +425,9 @@ private class GrayscaleMarkupOverlayView(
     private fun RectF.toLocalRect(): RectF {
         return RectF(
             width * ((left - overlayBounds.left) / overlayBounds.width()),
-            height * ((top - overlayBounds.top) / overlayBounds.height()),
+            height * ((overlayBounds.bottom - bottom) / overlayBounds.height()),
             width * ((right - overlayBounds.left) / overlayBounds.width()),
-            height * ((bottom - overlayBounds.top) / overlayBounds.height()),
+            height * ((overlayBounds.bottom - top) / overlayBounds.height()),
         )
     }
 
