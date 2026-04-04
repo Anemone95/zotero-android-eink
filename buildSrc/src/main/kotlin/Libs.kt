@@ -2,7 +2,7 @@ object Libs {
 
     const val androidJUnitRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-    const val nutrient = "com.pspdfkit:pspdfkit:2024.4.0"
+    const val nutrient = "io.nutrient:nutrient:11.2.0"
     const val googleServices = "com.google.gms:google-services:4.4.3"
     const val realmGradlePlugin = "io.realm:realm-gradle-plugin:10.19.0"
     const val materialDesign = "com.google.android.material:material:1.12.0"
@@ -39,7 +39,7 @@ object Libs {
     }
 
     object Dagger {
-        private const val version = "2.57"
+        private const val version = "2.58"
         const val hiltAndroid = "com.google.dagger:hilt-android:$version"
         const val hiltCompiler = "com.google.dagger:hilt-compiler:$version"
         const val hiltGradlePlugin = "com.google.dagger:hilt-android-gradle-plugin:$version"

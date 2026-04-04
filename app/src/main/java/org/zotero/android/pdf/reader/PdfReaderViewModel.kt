@@ -39,6 +39,11 @@ import com.pspdfkit.annotations.configuration.InkAnnotationConfiguration
 import com.pspdfkit.annotations.configuration.MarkupAnnotationConfiguration
 import com.pspdfkit.annotations.configuration.NoteAnnotationConfiguration
 import com.pspdfkit.annotations.configuration.ShapeAnnotationConfiguration
+import com.pspdfkit.annotations.addAnnotationToPageBlocking
+import com.pspdfkit.annotations.getAllAnnotationsOfTypeBlocking
+import com.pspdfkit.annotations.getAnnotationBlocking
+import com.pspdfkit.annotations.getAnnotationsBlocking
+import com.pspdfkit.annotations.removeAnnotationFromPageBlocking
 import com.pspdfkit.configuration.activity.PdfActivityConfiguration
 import com.pspdfkit.configuration.activity.UserInterfaceViewMode
 import com.pspdfkit.configuration.page.PageFitMode
@@ -1440,10 +1445,11 @@ class PdfReaderViewModel @Inject constructor(
                     key = AnnotationKey(key = key, type = type),
                 )
             }
+
+            override fun onAnnotationDeselected(annotation: Annotation, annotationDeleted: Boolean) {
+                deselectSelectedAnnotation(annotation)
+            }
         })
-        pdfFragment.addOnAnnotationDeselectedListener { annotation, _ ->
-            deselectSelectedAnnotation(annotation)
-        }
     }
 
     private fun initState() {
@@ -1633,10 +1639,7 @@ class PdfReaderViewModel @Inject constructor(
         displayName: String
     ): Map<String, PDFDocumentAnnotation> = withContext(dispatcher){
         val annotations = mutableMapOf<String, PDFDocumentAnnotation>()
-        val pdfAnnotations = document.annotationProvider
-            .getAllAnnotationsOfTypeAsync(AnnotationsConfig.supported)
-            .toList()
-            .blockingGet()
+        val pdfAnnotations = document.annotationProvider.getAllAnnotationsOfType(AnnotationsConfig.supported)
 
         for (pdfAnnotation in pdfAnnotations) {
             if (pdfAnnotation is SquareAnnotation && !pdfAnnotation.isZoteroAnnotation) {
@@ -1806,9 +1809,7 @@ class PdfReaderViewModel @Inject constructor(
             override fun onAnnotationCreated(annotation: Annotation) {
                 if (isAnnotationZeroSize(annotation)) {
                     Timber.w("PdfReaderViewModel: Prevented an annotation of type ${annotation.type} from being created due to zero dimensions")
-                    this@PdfReaderViewModel.document.annotationProvider.removeAnnotationFromPage(
-                        annotation
-                    )
+                    this@PdfReaderViewModel.document.annotationProvider.removeAnnotationFromPageBlocking(annotation)
                     return
                 }
 
@@ -1845,9 +1846,7 @@ class PdfReaderViewModel @Inject constructor(
         annotation: Annotation
     ): Boolean {
         if (isAnnotationZeroSize(annotation)) {
-            this@PdfReaderViewModel.document.annotationProvider.removeAnnotationFromPage(
-                annotation
-            )
+            this@PdfReaderViewModel.document.annotationProvider.removeAnnotationFromPageBlocking(annotation)
             dbWrapperMain.realmDbStorage.perform(
                 MarkObjectsAsDeletedDbRequest(
                     clazz = RItem::class,
@@ -2138,10 +2137,8 @@ class PdfReaderViewModel @Inject constructor(
         libraryId: LibraryIdentifier,
         isDark: Boolean
     ) {
-        val allAnnotations = document.annotationProvider.getAllAnnotationsOfType(
-            EnumSet.allOf(
-                AnnotationType::class.java
-            )
+        val allAnnotations = document.annotationProvider.getAllAnnotationsOfTypeBlocking(
+            EnumSet.allOf(AnnotationType::class.java)
         )
         for (annotation in allAnnotations) {
             annotation.flags =
@@ -2156,7 +2153,7 @@ class PdfReaderViewModel @Inject constructor(
             )
         }
         zoteroAnnotations.forEach {
-            document.annotationProvider.addAnnotationToPage(it)
+            document.annotationProvider.addAnnotationToPageBlocking(it)
         }
     }
 
@@ -2303,8 +2300,10 @@ class PdfReaderViewModel @Inject constructor(
                 continue
             }
 
-            val pdfAnnotation = this.document.annotationProvider.getAnnotations(annotation.page)
-                .firstOrNull { it.key == key.key } ?: continue
+            val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
+                annotation.page,
+                key.key
+            ) ?: continue
             Timber.i("update PDF annotation")
             updatedPdfAnnotations[pdfAnnotation] = annotation
         }
@@ -2327,9 +2326,10 @@ class PdfReaderViewModel @Inject constructor(
             }
 
             val oldAnnotation = PDFDatabaseAnnotation.init(item = this.databaseAnnotations!![index]!!) ?: continue
-            val pdfAnnotation =
-                this.document.annotationProvider.getAnnotations(oldAnnotation.page)
-                    .firstOrNull { it.key == oldAnnotation.key } ?: continue
+            val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
+                oldAnnotation.page,
+                oldAnnotation.key
+            ) ?: continue
             Timber.i("delete PDF annotation")
             deletedPdfAnnotations.add(pdfAnnotation)
         }
@@ -2420,13 +2420,13 @@ class PdfReaderViewModel @Inject constructor(
                 )
             }
             deletedPdfAnnotations.forEach {
-                this.document.annotationProvider.removeAnnotationFromPage(it)
+                this.document.annotationProvider.removeAnnotationFromPageBlocking(it)
             }
         }
 
         if (!insertedPdfAnnotations.isEmpty()) {
             insertedPdfAnnotations.forEach {
-                this.document.annotationProvider.addAnnotationToPage(it)
+                this.document.annotationProvider.addAnnotationToPageBlocking(it)
                 annotationPreviewManager.store(
                     rawDocument = this.rawDocument,
                     annotation = it,
@@ -2695,8 +2695,10 @@ class PdfReaderViewModel @Inject constructor(
         contents: String? = null,
         document: PdfDocument
     ) {
-        val pdfAnnotation = document.annotationProvider.getAnnotations(annotation.page)
-            .firstOrNull { it.key == annotation.key } ?: return
+        val pdfAnnotation = document.annotationProvider.getAnnotationBlocking(
+            annotation.page,
+            annotation.key
+        ) ?: return
 
         val changes = mutableListOf<PdfAnnotationChanges>()
 
@@ -2903,7 +2905,7 @@ class PdfReaderViewModel @Inject constructor(
         if (annotation.type == AnnotationType.FREETEXT) {
             val contents = annotation.contents
             if (contents.isNullOrBlank()) {
-                this.document.annotationProvider.removeAnnotationFromPage(annotation)
+                this.document.annotationProvider.removeAnnotationFromPageBlocking(annotation)
             }
         }
         updateState {
@@ -3007,9 +3009,9 @@ class PdfReaderViewModel @Inject constructor(
 //            .setSelectedAnnotationResizeEnabled(false)
             .autosaveEnabled(false)
             .scrollbarsEnabled(true)
-            .disableDefaultToolbar()
-            .hideDocumentTitleOverlay()
-            .enableStylusOnDetection(true)
+            .defaultToolbarEnabled(false)
+            .documentTitleOverlayEnabled(false)
+            .stylusOnDetectionEnabled(true)
             .hideUserInterfaceWhenCreatingAnnotations(false)
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
             .build()
@@ -3052,10 +3054,8 @@ class PdfReaderViewModel @Inject constructor(
         if (term.isEmpty() && filter == null) {
             val snapshot = viewState.snapshotKeys ?: return
 
-            this.document.annotationProvider.getAllAnnotationsOfType(
-                EnumSet.allOf(
-                    AnnotationType::class.java
-                )
+            this.document.annotationProvider.getAllAnnotationsOfTypeBlocking(
+                EnumSet.allOf(AnnotationType::class.java)
             ).forEach { annotation ->
                 if (annotation.flags.contains(AnnotationFlags.HIDDEN)) {
                     annotation.flags =
@@ -3080,10 +3080,8 @@ class PdfReaderViewModel @Inject constructor(
         val snapshot = viewState.snapshotKeys ?: viewState.sortedKeys
         val filteredKeys = filteredKeys(snapshot = snapshot, term = term, filter = filter)
 
-        this.document.annotationProvider.getAllAnnotationsOfType(
-            EnumSet.allOf(
-                AnnotationType::class.java
-            )
+        this.document.annotationProvider.getAllAnnotationsOfTypeBlocking(
+            EnumSet.allOf(AnnotationType::class.java)
         ).forEach { annotation ->
             val isHidden =
                 filteredKeys.firstOrNull { it.key == (annotation.key ?: annotation.uuid) } == null
@@ -3399,7 +3397,7 @@ class PdfReaderViewModel @Inject constructor(
     private fun updateVisibilityOfAnnotations() {
         handler.postDelayed({
             val pageIndex = if (pdfUiFragment.pageIndex == -1) 0 else pdfUiFragment.pageIndex
-            this.document.annotationProvider.getAnnotations(pageIndex).forEach {
+            this.document.annotationProvider.getAnnotationsBlocking(pageIndex).forEach {
                 this.pdfFragment.notifyAnnotationHasChanged(it)
             }
         }, 200)
@@ -3624,13 +3622,17 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     override fun onUndoClick() {
-        this.pdfFragment.undoManager.undo()
-        triggerEffect(PdfReaderViewEffect.ScreenRefresh)
+        viewModelScope.launch {
+            this@PdfReaderViewModel.pdfFragment.undoManager.undo()
+            triggerEffect(PdfReaderViewEffect.ScreenRefresh)
+        }
     }
 
     override fun onRedoClick() {
-        this.pdfFragment.undoManager.redo()
-        triggerEffect(PdfReaderViewEffect.ScreenRefresh)
+        viewModelScope.launch {
+            this@PdfReaderViewModel.pdfFragment.undoManager.redo()
+            triggerEffect(PdfReaderViewEffect.ScreenRefresh)
+        }
     }
 
     override fun onCloseClick() {
@@ -3650,10 +3652,10 @@ class PdfReaderViewModel @Inject constructor(
 
         if (!toRemove.isEmpty() || !toAdd.isEmpty()) {
             toRemove.forEach {
-                this.document.annotationProvider.removeAnnotationFromPage(it)
+                this.document.annotationProvider.removeAnnotationFromPageBlocking(it)
             }
             finalAnnotations.forEach {
-                this.document.annotationProvider.addAnnotationToPage(it)
+                this.document.annotationProvider.addAnnotationToPageBlocking(it)
             }
         }
 
@@ -3832,8 +3834,10 @@ class PdfReaderViewModel @Inject constructor(
 
     private fun remove(key: AnnotationKey) {
         val annotation = annotation(key) ?: return
-        val pdfAnnotation = this.document.annotationProvider.getAnnotations(annotation.page)
-            .firstOrNull { it.key == annotation.key } ?: return
+        val pdfAnnotation = this.document.annotationProvider.getAnnotationBlocking(
+            annotation.page,
+            annotation.key
+        ) ?: return
         remove(annotations = listOf(pdfAnnotation))
     }
 
