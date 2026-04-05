@@ -3310,8 +3310,9 @@ class PdfReaderViewModel @Inject constructor(
     }
 
     private fun generatePdfConfiguration(pdfSettings: PDFSettings): PdfActivityConfiguration {
-        if (!PSPDFKitPreferences.get(context).isAnnotationCreatorSet) {
-            PSPDFKitPreferences.get(context).setAnnotationCreator(viewState.displayName)
+        val pspdfKitPreferences = PSPDFKitPreferences.get(context)
+        if (!pspdfKitPreferences.isAnnotationCreatorSet) {
+            pspdfKitPreferences.setAnnotationCreator(viewState.displayName)
         }
 
         val scrollDirection = when (pdfSettings.direction) {
@@ -4741,7 +4742,7 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
-    fun restartDisableForceScreenOnTimer() {
+    override fun restartDisableForceScreenOnTimer() {
         viewModelScope.launch {
             triggerEffect(PdfReaderViewEffect.EnableForceScreenOn)
         }

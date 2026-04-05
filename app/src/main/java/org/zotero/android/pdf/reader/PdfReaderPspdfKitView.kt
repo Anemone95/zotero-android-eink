@@ -38,6 +38,7 @@ fun PdfReaderPspdfKitView(
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
                 onScaleEnd = vMInterface::onPdfScaleEnd
+                onAnyInput = vMInterface::restartDisableForceScreenOnTimer
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
                 onTextSelectionEnd = vMInterface::onTextSelectionEnd
@@ -64,6 +65,7 @@ fun PdfReaderPspdfKitView(
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
                 onScaleEnd = vMInterface::onPdfScaleEnd
+                onAnyInput = vMInterface::restartDisableForceScreenOnTimer
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
                 onTextSelectionEnd = vMInterface::onTextSelectionEnd
@@ -79,6 +81,7 @@ private class SingleFingerVerticalOnlyFrameLayout(
     var onDoubleTap: (() -> Boolean)? = null
     var shouldBlockCropShrinkGesture: () -> Boolean = { false }
     var onScaleEnd: (() -> Unit)? = null
+    var onAnyInput: (() -> Unit)? = null
     var isTextSelectionModeActive: () -> Boolean = { false }
     var onTextSelectionMove: ((Float, Float) -> Unit)? = null
     var onTextSelectionEnd: (() -> Unit)? = null
@@ -126,6 +129,10 @@ private class SingleFingerVerticalOnlyFrameLayout(
     )
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            onAnyInput?.invoke()
+        }
+
         if (gestureDetector.onTouchEvent(event)) {
             return true
         }
@@ -192,6 +199,24 @@ private class SingleFingerVerticalOnlyFrameLayout(
 
         val handled = super.dispatchTouchEvent(event)
         return handled
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE ||
+            event.actionMasked == MotionEvent.ACTION_HOVER_ENTER
+        ) {
+            onAnyInput?.invoke()
+        }
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE ||
+            event.actionMasked == MotionEvent.ACTION_HOVER_ENTER
+        ) {
+            onAnyInput?.invoke()
+        }
+        return super.dispatchHoverEvent(event)
     }
 }
 

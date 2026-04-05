@@ -11,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -185,12 +184,7 @@ internal fun PdfReaderScreen(
         )
 
         CustomScaffoldM3(
-            modifier = Modifier.pointerInteropFilter {
-                when (it.action) {
-                    MotionEvent.ACTION_DOWN -> viewModel.restartDisableForceScreenOnTimer()
-                }
-                false
-            },
+            modifier = Modifier,
             topBar = {
                 if (viewModel.isEInkModeEnabled) {
                     val isTopBarVisible = viewState.isTopBarVisible
