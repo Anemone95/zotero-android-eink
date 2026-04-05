@@ -3391,6 +3391,9 @@ class PdfReaderViewModel @Inject constructor(
             PageFitting.CROP -> PageFitMode.FIT_TO_WIDTH
         }
         val isCalculatedThemeDark = pdfReaderCurrentThemeEventStream.currentValue()!!.isDark
+        val eInkMode = defaults.getEInkMode()
+        val isEInkMode = eInkMode != EInkMode.Off
+        val isGrayscaleEInkMode = eInkMode == EInkMode.Grayscale
         val themeMode = when (isCalculatedThemeDark) {
             true -> ThemeMode.NIGHT
             false -> ThemeMode.DEFAULT
@@ -3402,19 +3405,28 @@ class PdfReaderViewModel @Inject constructor(
             .layoutMode(pageMode)
             .invertColors(isCalculatedThemeDark)
             .themeMode(themeMode)
+            .toGrayscale(isGrayscaleEInkMode)
             .showNoteEditorForNewNoteAnnotations(false)
             .zoomOutBounce(false)
 //            .disableFormEditing()
 //            .disableAnnotationRotation()
 //            .setSelectedAnnotationResizeEnabled(false)
             .autosaveEnabled(false)
-            .scrollbarsEnabled(true)
+            .scrollbarsEnabled(!isEInkMode)
+            .animateScrollOnEdgeTaps(false)
             .defaultToolbarEnabled(false)
             .documentTitleOverlayEnabled(false)
             .annotationPopupToolbarEnabled(false)
             .stylusOnDetectionEnabled(true)
             .hideUserInterfaceWhenCreatingAnnotations(false)
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
+
+        if (isEInkMode) {
+            // Use a 1dp background strip as a page divider in e-ink mode without changing continuous paging.
+            builder
+                .showGapBetweenPages(false)
+                .pagePadding(1)
+        }
 
         return builder.build()
     }
