@@ -44,7 +44,10 @@ class GeminiTranslateTextUseCase @Inject constructor(
                 })
             })
             add("generationConfig", JsonObject().apply {
-                addProperty("temperature", 0.2)
+                addProperty("temperature", 0.0)
+                add("thinkingConfig", JsonObject().apply {
+                    addProperty("thinkingBudget", 0)
+                })
             })
         }
 
@@ -88,10 +91,7 @@ class GeminiTranslateTextUseCase @Inject constructor(
     }
 
     private companion object {
-        // Inference from current official Gemini Developer API pricing/model docs:
-        // gemini-3.1-flash-lite-preview currently exists and is described as the most cost-efficient
-        // Gemini model, explicitly positioned for translation and other high-volume low-latency tasks.
-        const val GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+        const val GEMINI_MODEL = "gemini-2.5-flash-lite"
         const val GEMINI_GENERATE_CONTENT_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent"
     }
