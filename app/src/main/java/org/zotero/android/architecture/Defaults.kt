@@ -681,7 +681,7 @@ open class Defaults @Inject constructor(
     }
 
     private fun defaultTranslatePrompt(): String {
-        return "你有PL相关的专业知识，首先，翻译这个句子为中文，其次在换行拆解句子的语法组成，最后换行用词根解释生僻词（生僻词指CEFR标准中C1范围外的词）。你的输出是原文:xxx\\n译文:yyy\\n句子结构: zzz\\n生僻词:aaa, 句子是： {text}"
+        return "你有PL相关的专业知识，首先，翻译这个句子为中文，其次在换行拆解句子的语法组成，最后换行用词根解释生僻词（生僻词指CEFR标准中C1范围外的词）。你的输出如，原文:This is an apple.\\n译文:这是一个苹果\\n句子结构: [This(主语)] [is(系动词)] [an apple(表语)].\\n生僻词:N/A 。N/A表示句子里没有生词。 句子是： {text}"
     }
 
     fun reset() {
