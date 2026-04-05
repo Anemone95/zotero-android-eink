@@ -663,6 +663,10 @@ class PdfReaderViewModel @Inject constructor(
 
     private fun setOnPreparePopupToolbarListener() {
         this.pdfFragment.setOnPreparePopupToolbarListener { toolbar ->
+            if (viewState.translationPopup != null) {
+                toolbar.menuItems = emptyList()
+                return@setOnPreparePopupToolbarListener
+            }
             val sourceItems = toolbar.menuItems.toMutableList()
             val menuItems = sourceItems.listIterator()
 
@@ -2904,8 +2908,8 @@ class PdfReaderViewModel @Inject constructor(
 
     }
 
-    private fun hidePspdfkitToolbars() {
-        handler.postDelayed({
+    private fun hidePspdfkitToolbars(delayMs: Long = 0L) {
+        val hideToolbarViews = {
             val editingToolbarView = pdfUiFragment
                 .view?.rootView?.findViewById<View>(R.id.pspdf__annotation_editing_toolbar)
             editingToolbarView?.visibility = View.GONE
@@ -2915,7 +2919,12 @@ class PdfReaderViewModel @Inject constructor(
             val creationToolbarView = pdfUiFragment
                 .view?.rootView?.findViewById<View>(R.id.pspdf__annotation_creation_toolbar)
             creationToolbarView?.visibility = View.GONE
-        }, 200)
+        }
+        if (delayMs <= 0L) {
+            handler.post(hideToolbarViews)
+        } else {
+            handler.postDelayed(hideToolbarViews, delayMs)
+        }
     }
 
     private fun selectAndFocusAnnotationInDocument() {
@@ -4827,7 +4836,11 @@ class PdfReaderViewModel @Inject constructor(
         val selectedText = selection.text ?: return
         translatedTextSelection = selection
         val popupAnchor = selectionPopupAnchor(selection)
+        if (this::pdfFragment.isInitialized && pdfFragment.isInSpecialMode) {
+            pdfFragment.exitCurrentlyActiveMode()
+        }
         hidePspdfkitToolbars()
+        hidePspdfkitToolbars(delayMs = 200L)
         updateState {
             copy(
                 translationPopup = PdfReaderTranslationPopupState(
