@@ -7,20 +7,21 @@ This repository is a custom build of Zotero Android made for e-ink devices.
 
 - A crop feature for the PDF reader that removes left and right page margins for a more full-width reading view.
 - Disallow horizontal page movement using single finger.
-- translate
-  - Gemini support
-  - DeepL free support
-- E-Ink Mode in settings.
-- Grayscale e-ink has a rotate button in the first row of PDF reader actions for rotate the screen.
-- E-Ink Mode pop-up windows do not have shadows or background dimming.
-- E-ink-specific word-based text selection in the PDF reader: long-press selects the word under the touch point, dragging expands the text selection word by word.
-- E-ink different color in non-color monitor
+- mark annotation which has notes
 - Default PDF scroll direction is set to `Vertical`.
 - Default PDF page mode is set to `Single`.
+- Translation
+  - Gemini
+  - DeepL free
+- E-Ink Mode in settings.
+  - Grayscale e-ink has a rotate button in the first row of PDF reader actions for rotate the screen.
+  - pop-up windows do not have shadows or background dimming.
+  - E-ink-specific word-based text selection in the PDF reader: long-press selects the word under the touch point, dragging expands the text selection word by word.
+  - Grayscale e-ink different highlight visualization
 
 ## TODO
-[] mark annotation which has notes
-
+* Pen writing
+ 
 ## Build
 
 To build the debug APK:
