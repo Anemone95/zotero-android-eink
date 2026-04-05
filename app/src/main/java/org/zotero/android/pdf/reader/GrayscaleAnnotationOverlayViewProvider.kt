@@ -109,6 +109,9 @@ private class GrayscaleMarkupOverlayView(
         }
 
         drawBadge(canvas, localRects.first())
+        if (annotation is HighlightAnnotation && !annotation.contents.isNullOrBlank()) {
+            drawCommentBadge(canvas, localRects.last())
+        }
     }
 
     private fun drawHighlightBorder(canvas: Canvas, rect: RectF) {
@@ -295,6 +298,31 @@ private class GrayscaleMarkupOverlayView(
         drawGlyph(canvas, badgeRect)
     }
 
+    private fun drawCommentBadge(
+        canvas: Canvas,
+        lastRect: RectF,
+    ) {
+        val badgeSize = lastRect.height().coerceIn(12f, 18f)
+        val badgeLeft = (lastRect.right - badgeSize * 0.45f)
+            .coerceIn(0f, (width - badgeSize).coerceAtLeast(0f))
+        val badgeTop = (lastRect.top - badgeSize * 1.0f)
+            .coerceIn(0f, (height - badgeSize).coerceAtLeast(0f))
+        val badgeRect = RectF(
+            badgeLeft,
+            badgeTop,
+            badgeLeft + badgeSize,
+            badgeTop + badgeSize,
+        )
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(245, 255, 255, 255)
+            style = Paint.Style.FILL
+        }
+        borderPaint.strokeWidth = max(1.2f, badgeSize * 0.06f)
+        canvas.drawRoundRect(badgeRect, badgeSize * 0.2f, badgeSize * 0.2f, fillPaint)
+        canvas.drawRoundRect(badgeRect, badgeSize * 0.2f, badgeSize * 0.2f, borderPaint)
+        drawCommentGlyph(canvas, badgeRect)
+    }
+
     private fun drawGlyph(
         canvas: Canvas,
         rect: RectF,
@@ -444,6 +472,47 @@ private class GrayscaleMarkupOverlayView(
             lineTo(rect.left + width * 0.75f, rect.top + height * 0.55f)
         }
         canvas.drawPath(aPath, aPaint)
+    }
+
+    private fun drawCommentGlyph(canvas: Canvas, rect: RectF) {
+        val width = rect.width()
+        val height = rect.height()
+        val notePath = Path().apply {
+            moveTo(rect.left + width * 0.24f, rect.top + height * 0.18f)
+            lineTo(rect.left + width * 0.66f, rect.top + height * 0.18f)
+            lineTo(rect.left + width * 0.8f, rect.top + height * 0.32f)
+            lineTo(rect.left + width * 0.8f, rect.top + height * 0.82f)
+            lineTo(rect.left + width * 0.24f, rect.top + height * 0.82f)
+            close()
+        }
+        val foldedCorner = Path().apply {
+            moveTo(rect.left + width * 0.66f, rect.top + height * 0.18f)
+            lineTo(rect.left + width * 0.66f, rect.top + height * 0.32f)
+            lineTo(rect.left + width * 0.8f, rect.top + height * 0.32f)
+        }
+        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(235, 32, 32, 32)
+            style = Paint.Style.STROKE
+            strokeWidth = max(1.1f, width * 0.07f)
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        canvas.drawPath(notePath, linePaint)
+        canvas.drawPath(foldedCorner, linePaint)
+        canvas.drawLine(
+            rect.left + width * 0.34f,
+            rect.top + height * 0.43f,
+            rect.left + width * 0.68f,
+            rect.top + height * 0.43f,
+            linePaint,
+        )
+        canvas.drawLine(
+            rect.left + width * 0.34f,
+            rect.top + height * 0.58f,
+            rect.left + width * 0.68f,
+            rect.top + height * 0.58f,
+            linePaint,
+        )
     }
 
     private fun RectF.toLocalRect(): RectF {
