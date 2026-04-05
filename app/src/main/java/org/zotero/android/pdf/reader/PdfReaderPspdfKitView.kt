@@ -37,7 +37,6 @@ fun PdfReaderPspdfKitView(
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
-                onScaleEnd = vMInterface::onPdfScaleEnd
                 onAnyInput = vMInterface::restartDisableForceScreenOnTimer
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
@@ -64,7 +63,6 @@ fun PdfReaderPspdfKitView(
                 lockHorizontalSingleFingerPan = isFixedCropModeEnabled
                 onDoubleTap = vMInterface::onPdfDoubleTap
                 shouldBlockCropShrinkGesture = vMInterface::shouldBlockCropShrinkGesture
-                onScaleEnd = vMInterface::onPdfScaleEnd
                 onAnyInput = vMInterface::restartDisableForceScreenOnTimer
                 isTextSelectionModeActive = { vMInterface.isTextSelectionModeActive }
                 onTextSelectionMove = vMInterface::onTextSelectionMove
@@ -80,7 +78,6 @@ private class SingleFingerVerticalOnlyFrameLayout(
     var lockHorizontalSingleFingerPan: Boolean = false
     var onDoubleTap: (() -> Boolean)? = null
     var shouldBlockCropShrinkGesture: () -> Boolean = { false }
-    var onScaleEnd: (() -> Unit)? = null
     var onAnyInput: (() -> Unit)? = null
     var isTextSelectionModeActive: () -> Boolean = { false }
     var onTextSelectionMove: ((Float, Float) -> Unit)? = null
@@ -98,11 +95,8 @@ private class SingleFingerVerticalOnlyFrameLayout(
     private val scaleGestureDetector = ScaleGestureDetector(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            private var inScaleGesture = false
-
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
                 blockCurrentScaleGesture = false
-                inScaleGesture = true
                 return true
             }
 
@@ -119,11 +113,7 @@ private class SingleFingerVerticalOnlyFrameLayout(
             }
 
             override fun onScaleEnd(detector: ScaleGestureDetector) {
-                if (inScaleGesture) {
-                    this@SingleFingerVerticalOnlyFrameLayout.onScaleEnd?.invoke()
-                }
                 blockCurrentScaleGesture = false
-                inScaleGesture = false
             }
         }
     )

@@ -6,12 +6,19 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.RectF
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
 import android.net.Uri
 import android.os.Handler
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.FragmentManager
@@ -806,15 +813,13 @@ class PdfReaderViewModel @Inject constructor(
         if (defaults.getPDFSettings().pageFitting != PageFitting.CROP) {
             return false
         }
-        // Once the crop view is already close to full-page width, shrinking further is not useful.
-        if (!isCurrentPageVisibleWidthNearFullPageWidth(pdfUiFragment.pageIndex)) {
+        if (defaults.getPDFSettings().transition != org.zotero.android.pdf.data.PageScrollMode.CONTINUOUS) {
             return false
         }
-        Toast.makeText(
-            context,
-            context.getString(org.zotero.android.R.string.pdf_reader_fit_width_suggestion),
-            Toast.LENGTH_SHORT,
-        ).show()
+        if (!isCropViewWideEnoughForManualFitWidth(pdfUiFragment.pageIndex)) {
+            return false
+        }
+        showFitWidthSuggestionToast()
         return true
     }
 
@@ -867,27 +872,6 @@ class PdfReaderViewModel @Inject constructor(
             cropPage(pageIndex)
         }
         return true
-    }
-
-    override fun onPdfScaleEnd() {
-        if (!shouldStabilizeContinuousCropScale()) {
-            return
-        }
-        if (!this::pdfFragment.isInitialized) {
-            return
-        }
-        val rootView = pdfFragment.view ?: return
-        val stabilize = {
-            runCatching {
-                NutrientContinuousScaleStabilizer.stabilize(pdfFragment)
-            }.onFailure {
-                Timber.d(it, "Continuous scale stabilization failed")
-                Timber.d(it.stackTraceToString())
-            }
-            Unit
-        }
-        rootView.post(stabilize)
-        rootView.postDelayed(stabilize, 64L)
     }
 
     private fun onRawPageChanged(pageIndex: Int) {
@@ -1156,17 +1140,81 @@ class PdfReaderViewModel @Inject constructor(
         return rect
     }
 
-    private fun isCurrentPageVisibleWidthNearFullPageWidth(pageIndex: Int): Boolean {
+    private fun isCropViewWideEnoughForManualFitWidth(pageIndex: Int): Boolean {
         if (!this::document.isInitialized || !this::pdfFragment.isInitialized) {
             return false
         }
+        val configuration = savedCropConfiguration ?: return false
         val visibleRect = currentVisiblePdfRect(pageIndex) ?: return false
         val pageSize = document.getPageSize(pageIndex)
         if (pageSize.width <= 0f) {
             return false
         }
         val currentVisibleWidth = visibleRect.right - visibleRect.left
-        return currentVisibleWidth >= pageSize.width * 0.9f
+        val cropWidthFraction = (configuration.rightFraction - configuration.leftFraction)
+            .coerceIn(0f, 1f)
+        return currentVisibleWidth >= pageSize.width * cropWidthFraction
+    }
+
+    private fun showFitWidthSuggestionToast() {
+        val density = context.resources.displayMetrics.density
+        val horizontalPadding = (16 * density).toInt()
+        val verticalPadding = (12 * density).toInt()
+        val spacing = (8 * density).toInt()
+        val iconSize = (18 * density).toInt()
+        val isGrayscaleEInk = defaults.getEInkMode() == EInkMode.Grayscale
+
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
+            elevation = if (isGrayscaleEInk) 0f else 6f * density
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(android.graphics.Color.WHITE)
+                if (isGrayscaleEInk) {
+                    setStroke((1.5f * density).toInt().coerceAtLeast(1), android.graphics.Color.BLACK)
+                }
+            }
+        }
+
+        val leadingTextView = TextView(context).apply {
+            text = "Cannot zoom out further. Use"
+            setTextColor(ContextCompat.getColor(context, android.R.color.primary_text_light))
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+
+        val iconView = ImageView(context).apply {
+            setImageResource(org.zotero.android.R.drawable.fit_width_24)
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                marginStart = spacing
+                marginEnd = spacing
+            }
+        }
+
+        val trailingTextView = TextView(context).apply {
+            text = "button."
+            setTextColor(ContextCompat.getColor(context, android.R.color.primary_text_light))
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+
+        layout.addView(leadingTextView)
+        layout.addView(iconView)
+        layout.addView(trailingTextView)
+
+        Toast(context).apply {
+            duration = Toast.LENGTH_SHORT
+            setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, (24 * density).toInt())
+            view = layout
+        }.show()
     }
 
     private fun applyFitWidthZoomToCurrentPage(
@@ -3360,7 +3408,6 @@ class PdfReaderViewModel @Inject constructor(
 //            .disableAnnotationRotation()
 //            .setSelectedAnnotationResizeEnabled(false)
             .autosaveEnabled(false)
-            .zoomOutBounce(false)
             .scrollbarsEnabled(true)
             .defaultToolbarEnabled(false)
             .documentTitleOverlayEnabled(false)
@@ -3370,12 +3417,6 @@ class PdfReaderViewModel @Inject constructor(
             .setUserInterfaceViewMode(UserInterfaceViewMode.USER_INTERFACE_VIEW_MODE_MANUAL)
 
         return builder.build()
-    }
-
-    private fun shouldStabilizeContinuousCropScale(): Boolean {
-        val pdfSettings = defaults.getPDFSettings()
-        return pdfSettings.pageFitting == PageFitting.CROP &&
-            pdfSettings.transition == org.zotero.android.pdf.data.PageScrollMode.CONTINUOUS
     }
 
     override fun loadAnnotationPreviews(keys: List<String>) {

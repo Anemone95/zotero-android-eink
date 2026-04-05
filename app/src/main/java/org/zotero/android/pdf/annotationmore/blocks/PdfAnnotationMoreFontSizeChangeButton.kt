@@ -1,3 +1,5 @@
+package org.zotero.android.pdf.annotationmore.blocks
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box

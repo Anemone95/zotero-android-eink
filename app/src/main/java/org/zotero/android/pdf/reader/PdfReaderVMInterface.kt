@@ -69,7 +69,6 @@ interface PdfReaderVMInterface {
     fun shouldBlockCropShrinkGesture(): Boolean
     fun restartDisableForceScreenOnTimer()
     fun onPdfDoubleTap(): Boolean
-    fun onPdfScaleEnd()
     fun onTextSelectionMove(viewX: Float, viewY: Float)
     fun onTextSelectionEnd()
     fun preferredLandscapeScreenOrientation(): Int

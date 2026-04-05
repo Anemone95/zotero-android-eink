@@ -9,8 +9,14 @@ import android.content.Context
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.util.TypedValue
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.AttrRes
 import androidx.annotation.DimenRes
@@ -19,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.core.content.ContextCompat
+import org.zotero.android.ZoteroApplication
+import org.zotero.android.screens.settings.EInkMode
 import timber.log.Timber
 import kotlin.math.roundToInt
 
@@ -46,18 +54,57 @@ val Context.screenHeight
     get() = resources.displayMetrics.heightPixels
 
 fun Context.toast(msg: String) {
-    Toast.makeText(this, msg, Toast.LENGTH_SHORT)
-        .show()
+    showAppToast(msg, Toast.LENGTH_SHORT)
 }
 
 fun Context.longToast(msg: String) {
-    Toast.makeText(this, msg, Toast.LENGTH_LONG)
-        .show()
+    showAppToast(msg, Toast.LENGTH_LONG)
 }
 
 fun Context.toast(@StringRes res: Int) = toast(getString(res))
 
 fun Context.longToast(@StringRes res: Int) = longToast(getString(res))
+
+private fun Context.showAppToast(msg: String, duration: Int) {
+    val isGrayscaleEInk = ZoteroApplication.instance.defaults.getEInkMode() == EInkMode.Grayscale
+    if (!isGrayscaleEInk) {
+        Toast.makeText(this, msg, duration).show()
+        return
+    }
+
+    val density = resources.displayMetrics.density
+    val horizontalPadding = (16 * density).toInt()
+    val verticalPadding = (12 * density).toInt()
+
+    val layout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
+        elevation = 0f
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(Color.WHITE)
+            setStroke((1.5f * density).toInt().coerceAtLeast(1), Color.BLACK)
+        }
+    }
+
+    val textView = TextView(this).apply {
+        text = msg
+        setTextColor(Color.BLACK)
+        textSize = 14f
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
+    }
+
+    layout.addView(textView)
+
+    Toast(this).apply {
+        this.duration = duration
+        view = layout
+    }.show()
+}
 
 fun Context.isDarkTheme(): Boolean {
     val currentNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK

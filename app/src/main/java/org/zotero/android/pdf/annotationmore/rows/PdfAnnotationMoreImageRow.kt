@@ -1,9 +1,9 @@
 package org.zotero.android.pdf.annotationmore.rows
 
-import PdfAnnotationMoreColorPicker
 import androidx.compose.runtime.Composable
 import org.zotero.android.pdf.annotationmore.PdfAnnotationMoreViewModel
 import org.zotero.android.pdf.annotationmore.PdfAnnotationMoreViewState
+import org.zotero.android.pdf.annotationmore.blocks.PdfAnnotationMoreColorPicker
 
 @Composable
 internal fun PdfAnnotationMoreImageRow(

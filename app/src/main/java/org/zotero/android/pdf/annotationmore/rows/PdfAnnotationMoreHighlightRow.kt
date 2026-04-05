@@ -1,12 +1,12 @@
 package org.zotero.android.pdf.annotationmore.rows
 
-import PdfAnnotationMoreColorPicker
-import PdfAnnotationMoreHighlightText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
 import org.zotero.android.pdf.annotationmore.PdfAnnotationMoreViewModel
 import org.zotero.android.pdf.annotationmore.PdfAnnotationMoreViewState
+import org.zotero.android.pdf.annotationmore.blocks.PdfAnnotationMoreColorPicker
+import org.zotero.android.pdf.annotationmore.blocks.PdfAnnotationMoreHighlightText
 import org.zotero.android.screens.settings.elements.NewSettingsDivider
 
 @Composable

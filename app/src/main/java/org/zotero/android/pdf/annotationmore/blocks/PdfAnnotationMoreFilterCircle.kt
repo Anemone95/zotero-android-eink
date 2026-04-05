@@ -1,6 +1,9 @@
+package org.zotero.android.pdf.annotationmore.blocks
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -33,7 +36,7 @@ internal fun PdfAnnotationMoreFilterCircle(
             AnnotationColorToken(
                 hex = hex,
                 isSelected = isSelected,
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier.fillMaxSize()
             )
         }
     } else {
