@@ -19,6 +19,7 @@ This repository is a custom build of Zotero Android made for e-ink devices.
 - Default PDF page mode is set to `Single`.
 
 ## TODO
+[] mark annotation which has notes
 
 ## Build
 
