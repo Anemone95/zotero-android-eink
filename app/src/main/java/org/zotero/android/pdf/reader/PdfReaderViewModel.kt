@@ -333,13 +333,6 @@ class PdfReaderViewModel @Inject constructor(
         }
 
         onStorePageFlow.tryEmit(event.pageIndex)
-        if (defaults.getPDFSettings().pageFitting == PageFitting.CROP) {
-            if (savedCropConfiguration == null) {
-                cropPage(event.pageIndex)
-            } else {
-                applySavedCropConfiguration(event.pageIndex)
-            }
-        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
