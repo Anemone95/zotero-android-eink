@@ -6,7 +6,7 @@ plugins {
     kotlin("android")
     kotlin("kapt")
     kotlin("plugin.serialization")
-    id("com.github.triplet.play") version "3.12.1"
+    id("com.github.triplet.play") version "3.12.1" apply false
     id("dagger.hilt.android.plugin")
     id("realm-android")
     id("kotlin-parcelize")
@@ -24,6 +24,16 @@ plugins {
 
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.0"
+}
+
+val enablePlayPublisher = providers
+    .gradleProperty("enablePlayPublisher")
+    .map(String::toBoolean)
+    .orElse(false)
+    .get()
+
+if (enablePlayPublisher) {
+    apply(plugin = "com.github.triplet.play")
 }
 
 android {
@@ -49,15 +59,21 @@ android {
     }
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file("zotero.release.keystore")
+            val releaseStoreFile = rootProject.file("zotero.release.keystore")
+            val releaseSecretsFile = rootProject.file("keystore-secrets.txt")
+            val debugStoreFile = rootProject.file("debug.keystore")
 
-            if (rootProject.file("keystore-secrets.txt").exists()) {
-                val secrets: List<String> = rootProject
-                    .file("keystore-secrets.txt")
-                    .readLines()
+            if (releaseStoreFile.exists() && releaseSecretsFile.exists()) {
+                storeFile = releaseStoreFile
+                val secrets: List<String> = releaseSecretsFile.readLines()
                 keyAlias = secrets[0]
                 storePassword = secrets[1]
                 keyPassword = secrets[2]
+            } else {
+                storeFile = debugStoreFile
+                keyAlias = "androiddebugkey"
+                storePassword = "android"
+                keyPassword = "android"
             }
         }
     }
@@ -135,10 +151,12 @@ android {
     }
 }
 
-play {
-    track.set("internal")
-    defaultToAppBundles.set(true)
-    resolutionStrategy.set(ResolutionStrategy.AUTO)
+if (enablePlayPublisher) {
+    configure<com.github.triplet.gradle.play.PlayPublisherExtension> {
+        track.set("internal")
+        defaultToAppBundles.set(true)
+        resolutionStrategy.set(ResolutionStrategy.AUTO)
+    }
 }
 
 dependencies {
