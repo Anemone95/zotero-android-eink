@@ -4971,29 +4971,35 @@ class PdfReaderViewModel @Inject constructor(
                 }
 
                 TranslateService.Viwoods -> {
-                    when (val result = viwoodsTranslateTextUseCase.translate(selectedText)) {
-                        is Result.Success -> {
-                            updateState {
-                                copy(
-                                    translationPopup = viewState.translationPopup?.copy(
-                                        translation = result.value,
-                                        isLoading = false,
-                                        errorMessage = null,
+                    // Streaming: every emission (partial or final) replaces the
+                    // popup text with the cumulative answer; first partial also
+                    // flips isLoading off so the spinner goes away as soon as
+                    // real text is visible.
+                    viwoodsTranslateTextUseCase.translate(selectedText).collect { result ->
+                        when (result) {
+                            is Result.Success -> {
+                                updateState {
+                                    copy(
+                                        translationPopup = viewState.translationPopup?.copy(
+                                            translation = result.value,
+                                            isLoading = false,
+                                            errorMessage = null,
+                                        )
                                     )
-                                )
+                                }
                             }
-                        }
 
-                        is Result.Failure -> {
-                            Timber.e(result.exception, "PdfReaderViewModel: Viwoods translation failed")
-                            updateState {
-                                copy(
-                                    translationPopup = viewState.translationPopup?.copy(
-                                        translation = "",
-                                        isLoading = false,
-                                        errorMessage = context.getString(Strings.pdf_translate_failed),
+                            is Result.Failure -> {
+                                Timber.e(result.exception, "PdfReaderViewModel: Viwoods translation failed")
+                                updateState {
+                                    copy(
+                                        translationPopup = viewState.translationPopup?.copy(
+                                            translation = "",
+                                            isLoading = false,
+                                            errorMessage = context.getString(Strings.pdf_translate_failed),
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     }
