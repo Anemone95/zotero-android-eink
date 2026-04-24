@@ -8,6 +8,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import org.zotero.android.screens.settings.elements.NewSettingsDivider
+import org.zotero.android.screens.settings.elements.NewSettingsDropdownItem
 import org.zotero.android.screens.settings.elements.NewSettingsOptionItem
 import org.zotero.android.uicomponents.Strings
 import org.zotero.android.uicomponents.textinput.CustomOutlineTextField
@@ -26,18 +27,29 @@ internal fun SettingsTranslateSections(
 
     NewSettingsDivider()
 
-    CustomOutlineTextField(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        value = viewState.visibleSecret,
-        labelText = stringResource(id = Strings.settings_translate_secret),
-        placeholderText = stringResource(id = Strings.settings_translate_secret_placeholder),
-        visualTransformation = PasswordVisualTransformation(),
-        onValueChange = viewModel::onSecretChanged,
-        maxLines = 1,
-        singleLine = true,
-    )
+    if (viewState.showSecret) {
+        CustomOutlineTextField(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            value = viewState.visibleSecret,
+            labelText = stringResource(id = Strings.settings_translate_secret),
+            placeholderText = stringResource(id = Strings.settings_translate_secret_placeholder),
+            visualTransformation = PasswordVisualTransformation(),
+            onValueChange = viewModel::onSecretChanged,
+            maxLines = 1,
+            singleLine = true,
+        )
+    }
+
+    if (viewState.showViwoodsModel) {
+        NewSettingsDropdownItem(
+            title = stringResource(Strings.settings_translate_viwoods_model),
+            options = ViwoodsModel.entries,
+            selectedOption = viewState.viwoodsModel,
+            onOptionSelected = viewModel::onViwoodsModelChanged,
+        )
+    }
 
     if (viewState.showPrompt) {
         NewSettingsDivider()
@@ -46,7 +58,7 @@ internal fun SettingsTranslateSections(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            value = viewState.geminiPrompt,
+            value = viewState.visiblePrompt,
             labelText = stringResource(id = Strings.settings_translate_prompt),
             placeholderText = stringResource(id = Strings.settings_translate_prompt_placeholder),
             onValueChange = viewModel::onPromptChanged,

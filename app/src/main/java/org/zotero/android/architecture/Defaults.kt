@@ -11,6 +11,7 @@ import org.zotero.android.pdf.data.PDFSettings
 import org.zotero.android.pdf.data.SavedCropConfiguration
 import org.zotero.android.screens.settings.EInkMode
 import org.zotero.android.screens.settings.translate.TranslateService
+import org.zotero.android.screens.settings.translate.ViwoodsModel
 import org.zotero.android.screens.allitems.data.ItemsSortType
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMethod
 import org.zotero.android.screens.citbibexport.data.CitBibExportOutputMode
@@ -66,6 +67,8 @@ open class Defaults @Inject constructor(
     private val translateDeepLSecret = "translateDeepLSecret"
     private val translateGeminiSecret = "translateGeminiSecret"
     private val translateGeminiPrompt = "translateGeminiPrompt"
+    private val translateViwoodsModel = "translateViwoodsModel"
+    private val translateViwoodsPrompt = "translateViwoodsPrompt"
 
     private val exportOutputMode = "exportOutputMode"
     private val exportOutputMethod = "exportOutputMethod"
@@ -676,6 +679,24 @@ open class Defaults @Inject constructor(
 
     fun getTranslateGeminiPrompt(): String {
         val storedPrompt = sharedPreferences.getString(translateGeminiPrompt, defaultTranslatePrompt())
+            ?: return defaultTranslatePrompt()
+        return storedPrompt.ifBlank { defaultTranslatePrompt() }
+    }
+
+    fun setTranslateViwoodsModel(newValue: ViwoodsModel) {
+        sharedPreferences.edit { putString(translateViwoodsModel, newValue.modelId) }
+    }
+
+    fun getTranslateViwoodsModel(): ViwoodsModel {
+        return ViwoodsModel.fromModelId(sharedPreferences.getString(translateViwoodsModel, null))
+    }
+
+    fun setTranslateViwoodsPrompt(newValue: String) {
+        sharedPreferences.edit { putString(translateViwoodsPrompt, newValue) }
+    }
+
+    fun getTranslateViwoodsPrompt(): String {
+        val storedPrompt = sharedPreferences.getString(translateViwoodsPrompt, defaultTranslatePrompt())
             ?: return defaultTranslatePrompt()
         return storedPrompt.ifBlank { defaultTranslatePrompt() }
     }

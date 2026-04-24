@@ -8,7 +8,8 @@ enum class TranslateService(
     @StringRes override val titleResId: Int,
 ) : SettingsOption {
     DeepLFreePlan(Strings.settings_translate_service_deepl_free_plan),
-    Gemini(Strings.settings_translate_service_gemini);
+    Gemini(Strings.settings_translate_service_gemini),
+    Viwoods(Strings.settings_translate_service_viwoods);
 
     companion object {
         fun default(): TranslateService = DeepLFreePlan

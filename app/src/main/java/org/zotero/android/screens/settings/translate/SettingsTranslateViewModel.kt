@@ -22,7 +22,8 @@ internal class SettingsTranslateViewModel @Inject constructor(
                 deepLSecret = defaults.getTranslateDeepLSecret(),
                 geminiSecret = defaults.getTranslateGeminiSecret(),
                 geminiPrompt = defaults.getTranslateGeminiPrompt(),
-                showPrompt = service == TranslateService.Gemini,
+                viwoodsModel = defaults.getTranslateViwoodsModel(),
+                viwoodsPrompt = defaults.getTranslateViwoodsPrompt(),
             )
         }
     }
@@ -30,10 +31,7 @@ internal class SettingsTranslateViewModel @Inject constructor(
     fun onTranslateServiceChanged(service: TranslateService) {
         defaults.setTranslateService(service)
         updateState {
-            copy(
-                selectedService = service,
-                showPrompt = service == TranslateService.Gemini,
-            )
+            copy(selectedService = service)
         }
     }
 
@@ -52,13 +50,35 @@ internal class SettingsTranslateViewModel @Inject constructor(
                     copy(geminiSecret = secret)
                 }
             }
+
+            TranslateService.Viwoods -> Unit
         }
     }
 
     fun onPromptChanged(prompt: String) {
-        defaults.setTranslateGeminiPrompt(prompt)
+        when (viewState.selectedService) {
+            TranslateService.Gemini -> {
+                defaults.setTranslateGeminiPrompt(prompt)
+                updateState {
+                    copy(geminiPrompt = prompt)
+                }
+            }
+
+            TranslateService.Viwoods -> {
+                defaults.setTranslateViwoodsPrompt(prompt)
+                updateState {
+                    copy(viwoodsPrompt = prompt)
+                }
+            }
+
+            TranslateService.DeepLFreePlan -> Unit
+        }
+    }
+
+    fun onViwoodsModelChanged(model: ViwoodsModel) {
+        defaults.setTranslateViwoodsModel(model)
         updateState {
-            copy(geminiPrompt = prompt)
+            copy(viwoodsModel = model)
         }
     }
 }
@@ -68,12 +88,31 @@ internal data class SettingsTranslateViewState(
     val deepLSecret: String = "",
     val geminiSecret: String = "",
     val geminiPrompt: String = "",
-    val showPrompt: Boolean = false,
+    val viwoodsModel: ViwoodsModel = ViwoodsModel.default(),
+    val viwoodsPrompt: String = "",
 ) : ViewState {
+    val showSecret: Boolean
+        get() = selectedService != TranslateService.Viwoods
+
+    val showPrompt: Boolean
+        get() = selectedService == TranslateService.Gemini ||
+                selectedService == TranslateService.Viwoods
+
+    val showViwoodsModel: Boolean
+        get() = selectedService == TranslateService.Viwoods
+
     val visibleSecret: String
         get() = when (selectedService) {
             TranslateService.DeepLFreePlan -> deepLSecret
             TranslateService.Gemini -> geminiSecret
+            TranslateService.Viwoods -> ""
+        }
+
+    val visiblePrompt: String
+        get() = when (selectedService) {
+            TranslateService.Gemini -> geminiPrompt
+            TranslateService.Viwoods -> viwoodsPrompt
+            TranslateService.DeepLFreePlan -> ""
         }
 }
 

@@ -208,6 +208,7 @@ import org.zotero.android.sync.SessionDataEventStream
 import org.zotero.android.sync.Tag
 import org.zotero.android.translate.DeepLTranslateTextUseCase
 import org.zotero.android.translate.GeminiTranslateTextUseCase
+import org.zotero.android.translate.ViwoodsTranslateTextUseCase
 import org.zotero.android.uicomponents.Strings
 import timber.log.Timber
 import java.io.File
@@ -243,6 +244,7 @@ class PdfReaderViewModel @Inject constructor(
     private val dispatcher: CoroutineDispatcher,
     private val deepLTranslateTextUseCase: DeepLTranslateTextUseCase,
     private val geminiTranslateTextUseCase: GeminiTranslateTextUseCase,
+    private val viwoodsTranslateTextUseCase: ViwoodsTranslateTextUseCase,
     private val progressHandler: SyncProgressHandler,
     private val fileStore: FileStore,
     private val stateHandle: SavedStateHandle,
@@ -4961,6 +4963,35 @@ class PdfReaderViewModel @Inject constructor(
                                         translation = "",
                                         isLoading = false,
                                         errorMessage = message,
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                TranslateService.Viwoods -> {
+                    when (val result = viwoodsTranslateTextUseCase.translate(selectedText)) {
+                        is Result.Success -> {
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = result.value,
+                                        isLoading = false,
+                                        errorMessage = null,
+                                    )
+                                )
+                            }
+                        }
+
+                        is Result.Failure -> {
+                            Timber.e(result.exception, "PdfReaderViewModel: Viwoods translation failed")
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = "",
+                                        isLoading = false,
+                                        errorMessage = context.getString(Strings.pdf_translate_failed),
                                     )
                                 )
                             }
