@@ -51,7 +51,8 @@ internal class SettingsTranslateViewModel @Inject constructor(
                 }
             }
 
-            TranslateService.Viwoods -> Unit
+            TranslateService.Viwoods,
+            TranslateService.OfflineBergamot -> Unit
         }
     }
 
@@ -71,7 +72,8 @@ internal class SettingsTranslateViewModel @Inject constructor(
                 }
             }
 
-            TranslateService.DeepLFreePlan -> Unit
+            TranslateService.DeepLFreePlan,
+            TranslateService.OfflineBergamot -> Unit
         }
     }
 
@@ -92,7 +94,8 @@ internal data class SettingsTranslateViewState(
     val viwoodsPrompt: String = "",
 ) : ViewState {
     val showSecret: Boolean
-        get() = selectedService != TranslateService.Viwoods
+        get() = selectedService == TranslateService.DeepLFreePlan ||
+                selectedService == TranslateService.Gemini
 
     val showPrompt: Boolean
         get() = selectedService == TranslateService.Gemini ||
@@ -105,14 +108,16 @@ internal data class SettingsTranslateViewState(
         get() = when (selectedService) {
             TranslateService.DeepLFreePlan -> deepLSecret
             TranslateService.Gemini -> geminiSecret
-            TranslateService.Viwoods -> ""
+            TranslateService.Viwoods,
+            TranslateService.OfflineBergamot -> ""
         }
 
     val visiblePrompt: String
         get() = when (selectedService) {
             TranslateService.Gemini -> geminiPrompt
             TranslateService.Viwoods -> viwoodsPrompt
-            TranslateService.DeepLFreePlan -> ""
+            TranslateService.DeepLFreePlan,
+            TranslateService.OfflineBergamot -> ""
         }
 }
 

@@ -9,7 +9,8 @@ enum class TranslateService(
 ) : SettingsOption {
     DeepLFreePlan(Strings.settings_translate_service_deepl_free_plan),
     Gemini(Strings.settings_translate_service_gemini),
-    Viwoods(Strings.settings_translate_service_viwoods);
+    Viwoods(Strings.settings_translate_service_viwoods),
+    OfflineBergamot(Strings.settings_translate_service_offline_bergamot);
 
     companion object {
         fun default(): TranslateService = DeepLFreePlan

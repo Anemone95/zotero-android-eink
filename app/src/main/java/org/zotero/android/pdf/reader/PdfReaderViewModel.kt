@@ -208,6 +208,7 @@ import org.zotero.android.sync.SessionDataEventStream
 import org.zotero.android.sync.Tag
 import org.zotero.android.translate.DeepLTranslateTextUseCase
 import org.zotero.android.translate.GeminiTranslateTextUseCase
+import org.zotero.android.translate.OfflineBergamotTranslateTextUseCase
 import org.zotero.android.translate.ViwoodsTranslateTextUseCase
 import org.zotero.android.uicomponents.Strings
 import timber.log.Timber
@@ -245,6 +246,7 @@ class PdfReaderViewModel @Inject constructor(
     private val deepLTranslateTextUseCase: DeepLTranslateTextUseCase,
     private val geminiTranslateTextUseCase: GeminiTranslateTextUseCase,
     private val viwoodsTranslateTextUseCase: ViwoodsTranslateTextUseCase,
+    private val offlineBergamotTranslateTextUseCase: OfflineBergamotTranslateTextUseCase,
     private val progressHandler: SyncProgressHandler,
     private val fileStore: FileStore,
     private val stateHandle: SavedStateHandle,
@@ -5000,6 +5002,35 @@ class PdfReaderViewModel @Inject constructor(
                                         )
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                TranslateService.OfflineBergamot -> {
+                    when (val result = offlineBergamotTranslateTextUseCase.translate(selectedText)) {
+                        is Result.Success -> {
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = result.value,
+                                        isLoading = false,
+                                        errorMessage = null,
+                                    )
+                                )
+                            }
+                        }
+
+                        is Result.Failure -> {
+                            Timber.e(result.exception, "PdfReaderViewModel: OfflineBergamot translation failed")
+                            updateState {
+                                copy(
+                                    translationPopup = viewState.translationPopup?.copy(
+                                        translation = "",
+                                        isLoading = false,
+                                        errorMessage = context.getString(Strings.pdf_translate_failed),
+                                    )
+                                )
                             }
                         }
                     }

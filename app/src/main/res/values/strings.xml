@@ -89,6 +89,7 @@
     <string name="settings_translate_service_deepl_free_plan">DeepL (FreePlan)</string>
     <string name="settings_translate_service_gemini">Gemini</string>
     <string name="settings_translate_service_viwoods">Viwoods</string>
+    <string name="settings_translate_service_offline_bergamot">Offline (Bergamot)</string>
     <string name="settings_translate_viwoods_model">Model</string>
     <string name="settings_translate_viwoods_model_gpt_4o_mini">GPT-4o-mini</string>
     <string name="settings_translate_viwoods_model_gpt_4o">GPT-4o</string>
