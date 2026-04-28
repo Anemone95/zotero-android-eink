@@ -117,6 +117,6 @@
             <data android:scheme="https" />
         </intent>
         <package android:name="com.wisky.wiskyai" />
-        <package android:name="com.viwoods.stt" />
+        <package android:name="net.wenyuanxu.translate" />
     </queries>
 </manifest>

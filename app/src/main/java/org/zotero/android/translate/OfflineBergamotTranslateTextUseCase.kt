@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import com.viwoods.stt.translate.ITranslateCallback
-import com.viwoods.stt.translate.ITranslator
+import net.wenyuanxu.translate.ITranslateCallback
+import net.wenyuanxu.translate.ITranslator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -17,9 +17,9 @@ import timber.log.Timber
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
-// Talks to com.viwoods.stt's TranslateService over AIDL for fully offline
+// Talks to net.wenyuanxu.translate's TranslateService over AIDL for fully offline
 // English→Chinese translation (Mozilla Bergamot). Each translate() call
-// binds, runs, and unbinds; the model stays loaded inside com.viwoods.stt
+// binds, runs, and unbinds; the model stays loaded inside net.wenyuanxu.translate
 // for as long as Android keeps that process alive, so subsequent calls
 // pay only the bind round-trip + ~200ms inference.
 class OfflineBergamotTranslateTextUseCase @Inject constructor(
@@ -35,7 +35,7 @@ class OfflineBergamotTranslateTextUseCase @Inject constructor(
 
         val started = System.currentTimeMillis()
         val bound = bind() ?: return@withContext Failure(
-            Exception("Offline translation app (com.viwoods.stt) is not installed"),
+            Exception("Offline translation app (net.wenyuanxu.translate) is not installed"),
         )
         try {
             val result = invokeTranslate(bound.translator, normalized)
@@ -118,8 +118,8 @@ class OfflineBergamotTranslateTextUseCase @Inject constructor(
     )
 
     private companion object {
-        const val TARGET_PACKAGE = "com.viwoods.stt"
-        const val ACTION_BIND = "com.viwoods.stt.translate.action.BIND"
+        const val TARGET_PACKAGE = "net.wenyuanxu.translate"
+        const val ACTION_BIND = "net.wenyuanxu.translate.action.BIND"
         const val LOG_TAG = "OfflineBergamotTranslate"
     }
 }

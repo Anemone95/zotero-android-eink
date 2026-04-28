@@ -14,7 +14,7 @@ This repository is a custom build of Zotero Android made for e-ink devices.
   - Gemini
   - DeepL free
   - Viwoods AI
-  - Offline (Bergamot) — fully offline en→zh via the [`com.viwoods.stt`](https://github.com/Anemone95/offline-translate) AIDL service. Install that app first; no API key needed.
+  - Offline (Bergamot) — fully offline en→zh via the [`net.wenyuanxu.translate`](https://github.com/Anemone95/offline-translate) AIDL service. Install that app first; no API key needed.
 - E-Ink Mode in settings.
   - Grayscale e-ink has a rotate button in the first row of PDF reader actions for rotate the screen.
   - pop-up windows do not have shadows or background dimming.
